@@ -1,0 +1,4 @@
+spec/browser.spec.js
+node_modules
+.DS_Store
+coverage
