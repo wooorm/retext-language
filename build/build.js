@@ -3397,7 +3397,7 @@ var retext = new Retext().use(language);
 
 inputElement.addEventListener('input', debounce(detectLanguage, 50));
 
-inputElement.value = 'Enter some text here.\n' + getRandomFixture();
+inputElement.value = getRandomFixture();
 
 console.log(fixtures);
 
