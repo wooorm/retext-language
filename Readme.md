@@ -13,9 +13,14 @@ npm:
 $ npm install retext-language
 ```
 
-Component.js:
+Component:
 ```sh
 $ component install wooorm/retext-language
+```
+
+Bower:
+```sh
+$ bower install retext-language
 ```
 
 ## Usage
