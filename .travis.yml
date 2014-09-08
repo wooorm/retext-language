@@ -1,8 +1,15 @@
-language: "node_js"
+language: node_js
 before_install:
-  - "npm update -g npm"
-script: "npm run-script test-travis"
+- npm update -g npm
+script: npm run-script test-travis
 node_js:
-  - "0.10"
-  - "0.11"
-after_script: "npm install coveralls@2.10.0 && cat ./coverage/lcov.info | coveralls"
+- '0.10'
+- '0.11'
+after_script: npm install coveralls@2.10.0 && cat ./coverage/lcov.info | coveralls
+deploy:
+  provider: npm
+  email: tituswormer@gmail.com
+  api_key:
+    secure: GD2TbzQSyUUmnNtXEJHIvtRbvLA+gHq3r39YMpNSV4bRQGXR4quKakw5ohc739E2LtcW6Kr2F9jMhusGawtn8l4HVK1FKy8S7oeK0nB+SOeSCGrg892uWvVP0MEC2SmXiBoEX9iTVozsR3tQHzrHP2J9USVw66P4gKig9g+DLIg=
+  on:
+    repo: wooorm/retext-language
