@@ -8,7 +8,7 @@ Detect the language of text with **[Retext](https://github.com/wooorm/retext "Re
 
 ## Installation
 
-NPM:
+npm:
 ```sh
 $ npm install retext-language
 ```
