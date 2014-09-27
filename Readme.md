@@ -1,9 +1,5 @@
 # retext-language [![Build Status](https://travis-ci.org/wooorm/retext-language.svg?branch=master)](https://travis-ci.org/wooorm/retext-language) [![Coverage Status](https://img.shields.io/coveralls/wooorm/retext-language.svg)](https://coveralls.io/r/wooorm/retext-language?branch=master)
 
-[![browser support](https://ci.testling.com/wooorm/retext-language.png) ](https://ci.testling.com/wooorm/retext-language)
-
----
-
 Detect the language of text with **[Retext](https://github.com/wooorm/retext "Retext")**.
 
 ## Installation
