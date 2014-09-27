@@ -2,6 +2,7 @@
   "name": "retext-language",
   "version": "0.1.1",
   "description": "Detect the language of text with Retext",
+  "license": "MIT",
   "keywords": [
     "writing",
     "system",
@@ -10,12 +11,15 @@
     "guess",
     "retext"
   ],
-  "author": "Titus Wormer <tituswormer@gmail.com>",
-  "license": "MIT",
   "dependencies": {
     "franc": "^0.1.1",
     "retext-visit": "^0.1.1"
   },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/wooorm/retext-language.git"
+  },
+  "author": "Titus Wormer <tituswormer@gmail.com>",
   "devDependencies": {
     "eslint": "^0.8.0",
     "istanbul": "^0.3.0",
@@ -23,10 +27,6 @@
     "mocha": "^1.21.0",
     "retext": "^0.2.0-rc.2",
     "retext-content": "^0.2.2"
-  },
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/wooorm/retext-language.git"
   },
   "scripts": {
     "test": "node_modules/.bin/_mocha --reporter spec --check-leaks -u exports spec/retext-language.spec.js",

@@ -2,6 +2,7 @@
   "name": "retext-language",
   "version": "0.1.1",
   "description": "Detect the language of text with Retext",
+  "license": "MIT",
   "keywords": [
     "writing",
     "system",
@@ -10,12 +11,11 @@
     "guess",
     "retext"
   ],
-  "license": "MIT",
-  "repository": "wooorm/retext-language",
   "dependencies": {
-    "wooorm/franc": "^0.1.0",
-    "wooorm/retext-visit": "^0.1.0"
+    "wooorm/franc": "^0.1.1",
+    "wooorm/retext-visit": "^0.1.1"
   },
+  "repository": "wooorm/retext-language",
   "scripts" : [
     "index.js"
   ]

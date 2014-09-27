@@ -1,9 +1,8 @@
 {
   "name": "retext-language",
+  "main": "index.js",
   "description": "Detect the language of text with Retext",
-  "authors": [
-    "Titus Wormer <tituswormer@gmail.com>"
-  ],
+  "license": "MIT",
   "keywords": [
     "writing",
     "system",
@@ -12,16 +11,17 @@
     "guess",
     "retext"
   ],
+  "dependencies": {
+    "franc": "^0.1.1",
+    "retext-visit": "^0.1.1"
+  },
   "repository": {
     "type": "git",
     "url": "https://github.com/wooorm/retext-language.git"
   },
-  "license": "MIT",
-  "dependencies": {
-    "franc": "^0.1.0",
-    "retext-visit": "^0.1.0"
-  },
-  "main": "index.js",
+  "authors": [
+    "Titus Wormer <tituswormer@gmail.com>"
+  ],
   "ignore": [
     ".*",
     "*.log",
