@@ -2808,35 +2808,568 @@ module.exports = TextOMConstructor;
 
 });
 
-require.register("wooorm~retext@0.1.1", function (exports, module) {
-'use strict';
+require.register("visionmedia~co@3.1.0", function (exports, module) {
 
-var TextOMConstructor = require("wooorm~textom@0.1.1"),
-    ParseLatin = require("wooorm~parse-latin@0.1.3");
+/**
+ * slice() reference.
+ */
 
-function fromAST(TextOM, ast) {
-    var iterator = -1,
-        children, node, data, attribute;
+var slice = Array.prototype.slice;
 
-    node = new TextOM[ast.type]();
+/**
+ * Expose `co`.
+ */
 
-    if ('children' in ast) {
-        iterator = -1;
-        children = ast.children;
+module.exports = co;
 
-        while (children[++iterator]) {
-            node.append(fromAST(TextOM, children[iterator]));
-        }
+/**
+ * Wrap the given generator `fn` and
+ * return a thunk.
+ *
+ * @param {Function} fn
+ * @return {Function}
+ * @api public
+ */
+
+function co(fn) {
+  var isGenFun = isGeneratorFunction(fn);
+
+  return function (done) {
+    var ctx = this;
+
+    // in toThunk() below we invoke co()
+    // with a generator, so optimize for
+    // this case
+    var gen = fn;
+
+    // we only need to parse the arguments
+    // if gen is a generator function.
+    if (isGenFun) {
+      var args = slice.call(arguments), len = args.length;
+      var hasCallback = len && 'function' == typeof args[len - 1];
+      done = hasCallback ? args.pop() : error;
+      gen = fn.apply(this, args);
     } else {
-        node.fromString(ast.value);
+      done = done || error;
     }
 
+    next();
+
+    // #92
+    // wrap the callback in a setImmediate
+    // so that any of its errors aren't caught by `co`
+    function exit(err, res) {
+      setImmediate(function(){
+        done.call(ctx, err, res);
+      });
+    }
+
+    function next(err, res) {
+      var ret;
+
+      // multiple args
+      if (arguments.length > 2) res = slice.call(arguments, 1);
+
+      // error
+      if (err) {
+        try {
+          ret = gen.throw(err);
+        } catch (e) {
+          return exit(e);
+        }
+      }
+
+      // ok
+      if (!err) {
+        try {
+          ret = gen.next(res);
+        } catch (e) {
+          return exit(e);
+        }
+      }
+
+      // done
+      if (ret.done) return exit(null, ret.value);
+
+      // normalize
+      ret.value = toThunk(ret.value, ctx);
+
+      // run
+      if ('function' == typeof ret.value) {
+        var called = false;
+        try {
+          ret.value.call(ctx, function(){
+            if (called) return;
+            called = true;
+            next.apply(ctx, arguments);
+          });
+        } catch (e) {
+          setImmediate(function(){
+            if (called) return;
+            called = true;
+            next(e);
+          });
+        }
+        return;
+      }
+
+      // invalid
+      next(new TypeError('You may only yield a function, promise, generator, array, or object, '
+        + 'but the following was passed: "' + String(ret.value) + '"'));
+    }
+  }
+}
+
+/**
+ * Convert `obj` into a normalized thunk.
+ *
+ * @param {Mixed} obj
+ * @param {Mixed} ctx
+ * @return {Function}
+ * @api private
+ */
+
+function toThunk(obj, ctx) {
+
+  if (isGeneratorFunction(obj)) {
+    return co(obj.call(ctx));
+  }
+
+  if (isGenerator(obj)) {
+    return co(obj);
+  }
+
+  if (isPromise(obj)) {
+    return promiseToThunk(obj);
+  }
+
+  if ('function' == typeof obj) {
+    return obj;
+  }
+
+  if (isObject(obj) || Array.isArray(obj)) {
+    return objectToThunk.call(ctx, obj);
+  }
+
+  return obj;
+}
+
+/**
+ * Convert an object of yieldables to a thunk.
+ *
+ * @param {Object} obj
+ * @return {Function}
+ * @api private
+ */
+
+function objectToThunk(obj){
+  var ctx = this;
+  var isArray = Array.isArray(obj);
+
+  return function(done){
+    var keys = Object.keys(obj);
+    var pending = keys.length;
+    var results = isArray
+      ? new Array(pending) // predefine the array length
+      : new obj.constructor();
+    var finished;
+
+    if (!pending) {
+      setImmediate(function(){
+        done(null, results)
+      });
+      return;
+    }
+
+    // prepopulate object keys to preserve key ordering
+    if (!isArray) {
+      for (var i = 0; i < pending; i++) {
+        results[keys[i]] = undefined;
+      }
+    }
+
+    for (var i = 0; i < keys.length; i++) {
+      run(obj[keys[i]], keys[i]);
+    }
+
+    function run(fn, key) {
+      if (finished) return;
+      try {
+        fn = toThunk(fn, ctx);
+
+        if ('function' != typeof fn) {
+          results[key] = fn;
+          return --pending || done(null, results);
+        }
+
+        fn.call(ctx, function(err, res){
+          if (finished) return;
+
+          if (err) {
+            finished = true;
+            return done(err);
+          }
+
+          results[key] = res;
+          --pending || done(null, results);
+        });
+      } catch (err) {
+        finished = true;
+        done(err);
+      }
+    }
+  }
+}
+
+/**
+ * Convert `promise` to a thunk.
+ *
+ * @param {Object} promise
+ * @return {Function}
+ * @api private
+ */
+
+function promiseToThunk(promise) {
+  return function(fn){
+    promise.then(function(res) {
+      fn(null, res);
+    }, fn);
+  }
+}
+
+/**
+ * Check if `obj` is a promise.
+ *
+ * @param {Object} obj
+ * @return {Boolean}
+ * @api private
+ */
+
+function isPromise(obj) {
+  return obj && 'function' == typeof obj.then;
+}
+
+/**
+ * Check if `obj` is a generator.
+ *
+ * @param {Mixed} obj
+ * @return {Boolean}
+ * @api private
+ */
+
+function isGenerator(obj) {
+  return obj && 'function' == typeof obj.next && 'function' == typeof obj.throw;
+}
+
+/**
+ * Check if `obj` is a generator function.
+ *
+ * @param {Mixed} obj
+ * @return {Boolean}
+ * @api private
+ */
+
+function isGeneratorFunction(obj) {
+  return obj && obj.constructor && 'GeneratorFunction' == obj.constructor.name;
+}
+
+/**
+ * Check for plain object.
+ *
+ * @param {Mixed} val
+ * @return {Boolean}
+ * @api private
+ */
+
+function isObject(val) {
+  return val && Object == val.constructor;
+}
+
+/**
+ * Throw `err` in a new stack.
+ *
+ * This is used when co() is invoked
+ * without supplying a callback, which
+ * should only be for demonstrational
+ * purposes.
+ *
+ * @param {Error} err
+ * @api private
+ */
+
+function error(err) {
+  if (!err) return;
+  setImmediate(function(){
+    throw err;
+  });
+}
+
+});
+
+require.register("matthewmueller~wrap-fn@0.1.1", function (exports, module) {
+/**
+ * Module Dependencies
+ */
+
+var slice = [].slice;
+var co = require("visionmedia~co@3.1.0");
+var noop = function(){};
+
+/**
+ * Export `wrap-fn`
+ */
+
+module.exports = wrap;
+
+/**
+ * Wrap a function to support
+ * sync, async, and gen functions.
+ *
+ * @param {Function} fn
+ * @param {Function} done
+ * @return {Function}
+ * @api public
+ */
+
+function wrap(fn, done) {
+  done = done || noop;
+
+  return function() {
+    var args = slice.call(arguments);
+    var ctx = this;
+
+    // done
+    if (!fn) {
+      return done.apply(ctx, [null].concat(args));
+    }
+
+    // async
+    if (fn.length > args.length) {
+      return fn.apply(ctx, args.concat(done));
+    }
+
+    // generator
+    if (generator(fn)) {
+      return co(fn).apply(ctx, args.concat(done));
+    }
+
+    // sync
+    return sync(fn, done).apply(ctx, args);
+  }
+}
+
+/**
+ * Wrap a synchronous function execution.
+ *
+ * @param {Function} fn
+ * @param {Function} done
+ * @return {Function}
+ * @api private
+ */
+
+function sync(fn, done) {
+  return function () {
+    var ret;
+
+    try {
+      ret = fn.apply(this, arguments);
+    } catch (err) {
+      return done(err);
+    }
+
+    if (promise(ret)) {
+      ret.then(function (value) { done(null, value); }, done);
+    } else {
+      ret instanceof Error ? done(ret) : done(null, ret);
+    }
+  }
+}
+
+/**
+ * Is `value` a generator?
+ *
+ * @param {Mixed} value
+ * @return {Boolean}
+ * @api private
+ */
+
+function generator(value) {
+  return value
+    && value.constructor
+    && 'GeneratorFunction' == value.constructor.name;
+}
+
+
+/**
+ * Is `value` a promise?
+ *
+ * @param {Mixed} value
+ * @return {Boolean}
+ * @api private
+ */
+
+function promise(value) {
+  return value && 'function' == typeof value.then;
+}
+
+});
+
+require.register("segmentio~ware@1.2.0", function (exports, module) {
+/**
+ * Module Dependencies
+ */
+
+var slice = [].slice;
+var wrap = require("matthewmueller~wrap-fn@0.1.1");
+
+/**
+ * Expose `Ware`.
+ */
+
+module.exports = Ware;
+
+/**
+ * Initialize a new `Ware` manager, with optional `fns`.
+ *
+ * @param {Function or Array or Ware} fn (optional)
+ */
+
+function Ware (fn) {
+  if (!(this instanceof Ware)) return new Ware(fn);
+  this.fns = [];
+  if (fn) this.use(fn);
+}
+
+/**
+ * Use a middleware `fn`.
+ *
+ * @param {Function or Array or Ware} fn
+ * @return {Ware}
+ */
+
+Ware.prototype.use = function (fn) {
+  if (fn instanceof Ware) {
+    return this.use(fn.fns);
+  }
+
+  if (fn instanceof Array) {
+    for (var i = 0, f; f = fn[i++];) this.use(f);
+    return this;
+  }
+
+  this.fns.push(fn);
+  return this;
+};
+
+/**
+ * Run through the middleware with the given `args` and optional `callback`.
+ *
+ * @param {Mixed} args...
+ * @param {Function} callback (optional)
+ * @return {Ware}
+ */
+
+Ware.prototype.run = function () {
+  var fns = this.fns;
+  var ctx = this;
+  var i = 0;
+  var last = arguments[arguments.length - 1];
+  var done = 'function' == typeof last && last;
+  var args = done
+    ? slice.call(arguments, 0, arguments.length - 1)
+    : slice.call(arguments);
+
+  // next step
+  function next (err) {
+    if (err) return done(err);
+    var fn = fns[i++];
+    var arr = slice.call(args);
+
+    if (!fn) {
+      return done && done.apply(null, [null].concat(args));
+    }
+
+    wrap(fn, next).apply(ctx, arr);
+  }
+
+  next();
+
+  return this;
+};
+
+});
+
+require.register("wooorm~retext@0.2.0-rc.3", function (exports, module) {
+'use strict';
+
+var TextOMConstructor,
+    ParseLatin,
+    Ware,
+    has;
+
+/**
+ * Module dependencies.
+ */
+
+TextOMConstructor = require("wooorm~textom@0.1.1");
+ParseLatin = require("wooorm~parse-latin@0.1.3");
+Ware = require("segmentio~ware@1.2.0");
+
+/**
+ * Cached, fast, secure existence test.
+ */
+
+has = Object.prototype.hasOwnProperty;
+
+/**
+ * Transform a concrete syntax tree into a tree constructed
+ * from a given object model.
+ *
+ * @param {Object} TextOM - the object model.
+ * @param {Object} cst - the concrete syntax tree to
+ *   transform.
+ * @return {Node} the node constructed from the
+ *   CST and the object model.
+ */
+
+function fromCST(TextOM, cst) {
+    var index,
+        node,
+        children,
+        data,
+        attribute;
+
+    node = new TextOM[cst.type]();
+
+    if ('children' in cst) {
+        index = -1;
+        children = cst.children;
+
+        while (children[++index]) {
+            node.append(fromCST(TextOM, children[index]));
+        }
+    } else {
+        node.fromString(cst.value);
+    }
+
+    /**
+     * Currently, `data` properties are not really
+     * specified or documented. Therefore, the following
+     * branch is ignored by Istanbul.
+     *
+     * The idea is that plugins and parsers can each
+     * attach data to nodes, in a similar fashion to the
+     * DOMs dataset, which can be stringified and parsed
+     * back and forth between the concrete syntax tree
+     * and the node.
+     */
+
     /* istanbul ignore if: TODO, Untestable, will change soon. */
-    if ('data' in ast) {
-        data = ast.data;
+    if ('data' in cst) {
+        data = cst.data;
 
         for (attribute in data) {
-            if (data.hasOwnProperty(attribute)) {
+            if (has.call(data, attribute)) {
                 node.data[attribute] = data[attribute];
             }
         }
@@ -2845,131 +3378,470 @@ function fromAST(TextOM, ast) {
     return node;
 }
 
-function useImmediately(rootNode, use) {
-    return function (plugin) {
-        var self = this,
-            length = self.plugins.length;
-
-        use.apply(self, arguments);
-
-        if (length !== self.plugins.length) {
-            plugin(rootNode, self);
-        }
-
-        return self;
-    };
-}
-
 /**
- * Define `Retext`. Exported above, and used to instantiate a new
- * `Retext`.
+ * Construct an instance of `Retext`.
  *
- * @param {Function?} parser - the parser to use. Defaults to parse-latin.
- * @public
+ * @param {Function?} parser - the parser to use. Defaults
+ *   to a new instance of `parse-latin`.
  * @constructor
  */
+
 function Retext(parser) {
-    var self = this;
+    var self,
+        TextOM;
 
     if (!parser) {
         parser = new ParseLatin();
     }
 
+    self = this;
+    TextOM = new TextOMConstructor();
+
+    self.ware = new Ware();
     self.parser = parser;
-    self.TextOM = parser.TextOM = new TextOMConstructor();
-    self.TextOM.parser = parser;
-    self.plugins = [];
+    self.TextOM = TextOM;
+
+    /**
+     * Expose `TextOM` on `parser`, and vice versa.
+     */
+
+    parser.TextOM = TextOM;
+    TextOM.parser = parser;
 }
 
 /**
- * `Retext#use` takes a plugin-a humble function-and when the parse
- * method of the Retext instance is called, the plugin will be called
- * with the parsed tree, and the retext instance as arguments.
+ * Attaches `plugin`: a humble function.
  *
- * Note that, during the parsing stage, when the `use` method is called
- * by a plugin, the nested plugin is immediately called, before continuing
- * on with its parent plugin.
+ * When `parse` or `run` is invoked, `plugin` is
+ * invoked with `node` and a `retext` instance.
  *
- * @param {Function} plugin - the plugin to call when parsing.
- * @param {Function?} plugin.attach - called only once with a Retext
- *                                    instance. If you're planning on
- *                                    modifying TextOM or a parser, do it
- *                                    in this method.
+ * If `plugin` contains asynchronous functionality, it
+ * should accept a third argument (`next`) and invoke
+ * it on completion.
+ *
+ * `plugin.attach` is invoked with a `retext` instance
+ * when attached, enabling `plugin` to depend on other
+ * plugins.
+ *
+ * Code to initialize `plugin` should go into its `attach`
+ * method, such as functionality to modify the object model
+ * (TextOM), the parser (e.g., `parse-latin`), or the
+ * `retext` instance. `plugin.attach` is invoked when
+ * `plugin` is attached to a `retext` instance.
+ *
+ * @param {function(Node, Retext, Function?)} plugin -
+ *   functionality to analyze and manipulate a node.
+ * @param {function(Retext)} plugin.attach - functionality
+ *   to initialize `plugin`.
  * @return this
- * @public
  */
+
 Retext.prototype.use = function (plugin) {
+    var self;
+
     if (typeof plugin !== 'function') {
-        throw new TypeError('Illegal invocation: \'' + plugin +
-            '\' is not a valid argument for \'Retext.prototype.use\'');
+        throw new TypeError(
+            'Illegal invocation: `' + plugin + '` ' +
+            'is not a valid argument for `Retext#use(plugin)`'
+        );
     }
 
-    var self = this,
-        plugins = self.plugins;
+    self = this;
 
-    if (plugins.indexOf(plugin) === -1) {
+    if (self.ware.fns.indexOf(plugin) === -1) {
+        self.ware.use(plugin);
+
         if (plugin.attach) {
             plugin.attach(self);
         }
-
-        plugins.push(plugin);
     }
 
     return self;
 };
 
 /**
- * `Retext#parse` takes a source to be given (and parsed) by the parser.
- * Then, `parse` iterates over all plugins, and allows them to modify the
- * TextOM tree created by the parser.
+ * Transform a given value into a node, applies attached
+ * plugins to the node, and invokes `done` with either an
+ * error (first argument) or the transformed node (second
+ * argument).
  *
- * @param {String?} source - The source to convert.
- * @return {Node} - A RootNode containing the tokenised source.
- * @public
+ * @param {string?} value - The value to transform.
+ * @param {function(Error, Node)} done - Callback to
+ *   invoke when the transformations have completed.
+ * @return this
  */
-Retext.prototype.parse = function (source) {
-    var self = this,
-        rootNode = fromAST(self.TextOM, self.parser.tokenizeRoot(source));
 
-    self.applyPlugins(rootNode);
+Retext.prototype.parse = function (value, done) {
+    var self,
+        cst;
 
-    return rootNode;
-};
-
-/**
- * `Retext#applyPlugins` applies the plugins bound to the retext instance to a
- * given tree.
- *
- * Note that, during the parsing stage, when the `use` plugin is called
- * by a plugin, the nested plugin is immediately called, before continuing
- * on with its parent plugin.
- *
- * @param {Node} tree - The tree to apply plugins to.
- * @public
- */
-Retext.prototype.applyPlugins = function (tree) {
-    var self = this,
-        plugins = self.plugins.concat(),
-        iterator = -1,
-        use = self.use;
-
-    self.use = useImmediately(tree, use);
-
-    while (plugins[++iterator]) {
-        plugins[iterator](tree, this);
+    if (typeof done !== 'function') {
+        throw new TypeError(
+            'Illegal invocation: `' + done + '` ' +
+            'is not a valid argument for `Retext#parse(value, done)`.\n' +
+            'This breaking change occurred in 0.2.0-rc.1, see GitHub for ' +
+            'more information.'
+        );
     }
 
-    self.use = use;
+    self = this;
+
+    cst = self.parser.parse(value);
+
+    self.run(fromCST(self.TextOM, cst), done);
+
+    return self;
 };
 
 /**
- * Expose `Retext`. Used to instantiate a new Retext object.
+ * Applies attached plugins to `node` and invokes `done`
+ * with either an error (first argument) or the transformed
+ * `node` (second argument).
+ *
+ * @param {Node} node - The node to apply attached
+ *   plugins to.
+ * @param {function(Error, Node)} done - Callback to
+ *   invoke when the transformations have completed.
+ * @return this
  */
-exports = module.exports = Retext;
+
+Retext.prototype.run = function (node, done) {
+    var self;
+
+    if (typeof done !== 'function') {
+        throw new TypeError(
+            'Illegal invocation: `' + done + '` ' +
+            'is not a valid argument for ' +
+            '`Retext#run(node, done)`.\n' +
+            'This breaking change occurred in 0.2.0-rc.1, see GitHub for ' +
+            'more information.'
+        );
+    }
+
+    self = this;
+
+    self.ware.run(node, self, done);
+
+    return self;
+};
+
+/**
+ * Expose `Retext`.
+ */
+
+module.exports = Retext;
 
 });
 
-require.register("wooorm~franc@0.1.0", function (exports, module) {
+require.register("wooorm~n-gram@0.0.1", function (exports, module) {
+'use strict';
+
+/**
+ * A factory returning a function that converts a given string to n-grams.
+ *
+ * @example
+ *   nGram(2) // [Function]
+ *
+ * @example
+ *   nGram(4) // [Function]
+ *
+ *
+ * @param {number} n - The `n` in n-gram.
+ * @throws {Error} When `n` is not a number (incl. NaN), Infinity, or lt 1.
+ * @return {Function} A function creating n-grams from a given value.
+ */
+
+function nGram(n) {
+    if (
+        typeof n !== 'number' ||
+        n < 1 ||
+        n !== n ||
+        n === Infinity
+    ) {
+        throw new Error(
+            'Type error: `' + n + '` is not a valid argument for n-gram'
+        );
+    }
+
+    /**
+     * Create n-grams from a given value.
+     *
+     * @example
+     *   nGram(4)('n-gram')
+     *   // ['n-gr', '-gra', 'gram']
+     *
+     * @param {*} value - The value to stringify and convert into n-grams.
+     * @return {Array.<string>} n-grams
+     */
+
+    return function (value) {
+        var nGrams = [],
+            index;
+
+        if (value === null || value === undefined) {
+            return nGrams;
+        }
+
+        value = String(value);
+        index = value.length - n + 1;
+
+        if (index < 1) {
+            return [];
+        }
+
+        while (index--) {
+            nGrams[index] = value.substr(index, n);
+        }
+
+        return nGrams;
+    };
+}
+
+/**
+ * Export `n-gram`.
+ */
+
+module.exports = nGram;
+
+/**
+ * Create bigrams from a given value.
+ *
+ * @example
+ *   bigram('n-gram')
+ *   // ["n-", "-g", "gr", "ra", "am"]
+ *
+ * @param {*} value - The value to stringify and convert into bigrams.
+ * @return {Array.<string>} bigrams
+ */
+
+nGram.bigram = nGram(2);
+
+/**
+ * Create trigrams from a given value.
+ *
+ * @example
+ *   trigram('n-gram')
+ *   // ["n-g", "-gr", "gra", "ram"]
+ *
+ * @param {*} value - The value to stringify and convert into trigrams.
+ * @return {Array.<string>} trigrams
+ */
+
+nGram.trigram = nGram(3);
+
+});
+
+require.register("wooorm~trigram-utils@0.0.2", function (exports, module) {
+// ==ClosureCompiler==
+// @output_file_name default.js
+// @compilation_level ADVANCED_OPTIMIZATIONS
+// ==/ClosureCompiler==
+
+'use strict';
+
+var getTrigrams, EXPRESSION_SYMBOLS, has;
+
+/**
+ * Module dependencies.
+ */
+
+getTrigrams = require("wooorm~n-gram@0.0.1").trigram;
+
+/**
+ * Faster, securer, existence checks.
+ */
+
+has = Object.prototype.hasOwnProperty;
+
+/**
+ * An expression matching general non-important (as in, for
+ * language detection) punctuation marks, symbols, and numbers.
+ *
+ * | Unicode | Character | Name               |
+ * | ------: | :-------: | :----------------- |
+ * |  \u0021 |     !     | EXCLAMATION MARK   |
+ * |  \u0022 |     "     | QUOTATION MARK     |
+ * |  \u0023 |     #     | NUMBER SIGN        |
+ * |  \u0024 |     $     | DOLLAR SIGN        |
+ * |  \u0025 |     %     | PERCENT SIGN       |
+ * |  \u0026 |     &     | AMPERSAND          |
+ * |  \u0027 |     '     | APOSTROPHE         |
+ * |  \u0028 |     (     | LEFT PARENTHESIS   |
+ * |  \u0029 |     )     | RIGHT PARENTHESIS  |
+ * |  \u002A |     *     | ASTERISK           |
+ * |  \u002B |     +     | PLUS SIGN          |
+ * |  \u002C |     ,     | COMMA              |
+ * |  \u002D |     -     | HYPHEN-MINUS       |
+ * |  \u002E |     .     | FULL STOP          |
+ * |  \u002F |     /     | SOLIDUS            |
+ * |  \u0030 |     0     | DIGIT ZERO         |
+ * |  \u0031 |     1     | DIGIT ONE          |
+ * |  \u0032 |     2     | DIGIT TWO          |
+ * |  \u0033 |     3     | DIGIT THREE        |
+ * |  \u0034 |     4     | DIGIT FOUR         |
+ * |  \u0035 |     5     | DIGIT FIVE         |
+ * |  \u0036 |     6     | DIGIT SIX          |
+ * |  \u0037 |     7     | DIGIT SEVEN        |
+ * |  \u0038 |     8     | DIGIT EIGHT        |
+ * |  \u0039 |     9     | DIGIT NINE         |
+ * |  \u003A |     :     | COLON              |
+ * |  \u003B |     ;     | SEMICOLON          |
+ * |  \u003C |     <     | LESS-THAN SIGN     |
+ * |  \u003D |     =     | EQUALS SIGN        |
+ * |  \u003E |     >     | GREATER-THAN SIGN  |
+ * |  \u003F |     ?     | QUESTION MARK      |
+ * |  \u0040 |     @     | COMMERCIAL AT      |
+ */
+
+EXPRESSION_SYMBOLS = /[\u0021-\u0040]+/g;
+
+/**
+ * Clean a text input stream.
+ *
+ * @example
+ *   > clean('Some dirty  text.')
+ *   // 'some dirty text'
+ *
+ * @param {string} value - the input value.
+ * @returns {string} the cleaned value.
+ */
+
+function clean(value) {
+    if (value === null || value === undefined) {
+        value = '';
+    }
+
+    return String(value)
+        .replace(EXPRESSION_SYMBOLS, ' ')
+        .replace(/\s+/g, ' ')
+        .trim()
+        .toLowerCase();
+}
+
+/**
+ * Deep regular sort on the number at `1` in both objects.
+ *
+ * @example
+ *   > [[0, 20], [0, 1], [0, 5]].sort(sort);
+ *   // [[0, 1], [0, 5], [0, 20]]
+ *
+ * @param {{1: number}} a
+ * @param {{1: number}} b
+ */
+
+function sort(a, b) {
+    return a[1] - b[1];
+}
+
+/**
+ * Get clean, padded, trigrams.
+ *
+ * @param {string} value - the input value.
+ * @returns {Array.<string>} the cleaned, padded, tigrams.
+ */
+
+function getCleanTrigrams(value) {
+    return getTrigrams(' ' + clean(value) + ' ');
+}
+
+/**
+ * Get an object with trigrams as its attributes, and their
+ * occurence count as their values
+ *
+ * @param {string} value
+ * @return {Object.<string, number>} - Object containing
+ *   weighted trigrams.
+ */
+
+function getCleanTrigramsAsDictionary(value) {
+    var trigrams,
+        dictionary,
+        index,
+        trigram;
+
+    trigrams = getCleanTrigrams(value);
+    dictionary = {};
+    index = trigrams.length;
+
+    while (index--) {
+        trigram = trigrams[index];
+
+        if (has.call(dictionary, trigram)) {
+            dictionary[trigram]++;
+        } else {
+            dictionary[trigram] = 1;
+        }
+    }
+
+    return dictionary;
+}
+
+/**
+ * Get the array containing trigram--count tuples from a
+ * given value.
+ *
+ * @param {string} value
+ * @return {Array.<Array.<string, number>>} An array containing
+ *   trigram--count tupples, sorted by count (low to high).
+ */
+
+function getCleanTrigramsAsTuples(value) {
+    var dictionary,
+        tuples,
+        trigram;
+
+    dictionary = getCleanTrigramsAsDictionary(value);
+    tuples = [];
+
+    for (trigram in dictionary) {
+        tuples.push([trigram, dictionary[trigram]]);
+    }
+
+    tuples.sort(sort);
+
+    return tuples;
+}
+
+/**
+ * Get the array containing trigram--count tuples from a
+ * given value.
+ *
+ * @param {Array.<Array.<string, number>>} tuples - the tuples
+ *   to transform into a dictionary.
+ * @return {Object.<string, number>} The dictionary.
+ */
+
+function getCleanTrigramTuplesAsDictionary(tuples) {
+    var dictionary,
+        index,
+        tuple;
+
+    dictionary = {};
+    index = tuples.length;
+
+    while (index--) {
+        tuple = tuples[index];
+        dictionary[tuple[0]] = tuple[1];
+    }
+
+    return dictionary;
+}
+
+/**
+ * Export the utilities.
+ */
+
+module.exports = {
+    'clean' : clean,
+    'trigrams' : getCleanTrigrams,
+    'asDictionary' : getCleanTrigramsAsDictionary,
+    'asTuples' : getCleanTrigramsAsTuples,
+    'tuplesAsDictionary' : getCleanTrigramTuplesAsDictionary
+};
+
+});
+
+require.register("wooorm~franc@0.1.1", function (exports, module) {
 /* Guess the natural language of a text
  * Copyright (c) 2014 Titus Wormer <tituswormer@gmail.com>
  * http://github.com/wooorm/franc/
@@ -3007,31 +3879,95 @@ require.register("wooorm~franc@0.1.0", function (exports, module) {
 'use strict';
 
 var models,
-    MAX_LENGTH, MIN_LENGTH, MAX_DIFFERENCE, SINGLETONS, UNDETERMINED,
-    ALL_LATIN, CYRILLIC, ARABIC, DEVANAGARI, PT,
-    unicodeBlocks, singletonsLength, unicodeBlockCount;
+    utilities,
+    FOURTY_PERCENT,
+    TWENTY_PERCENT,
+    MAX_LENGTH,
+    MIN_LENGTH,
+    MAX_DIFFERENCE,
+    SINGLETONS,
+    ALL_LATIN,
+    CYRILLIC,
+    ARABIC,
+    DEVANAGARI,
+    PT,
+    unicodeBlocks,
+    singletonsLength,
+    unicodeBlockCount;
 
-models = require("wooorm~franc@0.1.0/data.json");
+/**
+ * Load `trigram-utils`.
+ */
+
+utilities = require("wooorm~trigram-utils@0.0.2");
+
+/**
+ * Load trigram data files.
+ */
+
+models = require("wooorm~franc@0.1.1/data.json");
+
+/**
+ * Construct trigram dictionaries.
+ */
 
 (function () {
-    var languageModel, languageName, iterator, length, newModel;
+    var languageModel,
+        languageName,
+        index,
+        newModel;
 
     for (languageName in models) {
         languageModel = models[languageName].split('|');
 
-        iterator = -1;
-        length = languageModel.length;
+        index = languageModel.length;
         models[languageName] = newModel = {};
 
-        while (++iterator < length) {
-            newModel[languageModel[iterator]] = iterator;
+        while (index--) {
+            newModel[languageModel[index]] = index;
         }
     }
 })();
 
+/**
+ * Maximum sample length.
+ */
+
 MAX_LENGTH = 4096;
+
+/**
+ * Minimum sample length.
+ */
+
 MIN_LENGTH = 10;
+
+/**
+ * The maximum distance to add when a given trigram does
+ * not exist in a trigram dictionary.
+ */
+
 MAX_DIFFERENCE = 300;
+
+/**
+ * When the characters of certain scripts account for
+ * 40% (or higher) of a string, the string is tested
+ * against fewer than all trigrams.
+ */
+
+FOURTY_PERCENT = 0.4;
+
+/**
+ * When the characters of certain scripts account for
+ * 20% (or higher) of a string, the string is tested
+ * against fewer than all trigrams.
+ */
+
+TWENTY_PERCENT = 0.2;
+
+/**
+ * Some scripts are exclusivly used by a single language.
+ * This list contains this mapping.
+ */
 
 SINGLETONS = [
   ['armenian', 'hy'],
@@ -3055,9 +3991,16 @@ SINGLETONS = [
   ['tibetan', 'bo']
 ];
 
+/**
+ * Cached length of the above singletons.
+ */
+
 singletonsLength = SINGLETONS.length;
 
-UNDETERMINED = [['und', 1]];
+/**
+ * A list of all languages which use the Latin
+ * script (both basic and extended).
+ */
 
 ALL_LATIN = [
     /* Basic Latin */
@@ -3070,15 +4013,34 @@ ALL_LATIN = [
     'sq', 'sv', 'tl', 'tr', 've', 'vi'
 ];
 
+/**
+ * A list of all languages which use the Cyrillic script.
+ */
+
 CYRILLIC = ['bg', 'kk', 'ky', 'mk', 'mn', 'ru', 'sr', 'uk', 'uz'];
+
+/**
+ * A list of all languages which use the Arabic script.
+ */
 
 ARABIC = ['ar', 'fa', 'ps', 'ur'];
 
+/**
+ * A list of all languages which use the Devanagari script.
+ */
+
 DEVANAGARI = ['hi', 'ne'];
+
+/**
+ * The two supported portuguese languages.
+ */
 
 PT = ['pt-BR', 'pt-PT'];
 
-/* Unicode block expressions. */
+/**
+ * Expressions to match certain scripts.
+ */
+
 unicodeBlocks = [
     ['arabic', /[\u0600-\u06FF]/g],
     ['arabicPresentationFormsA', /[\uFB50-\uFDFF]/g],
@@ -3116,112 +4078,49 @@ unicodeBlocks = [
     ['tibetan', /[\u0F00-\u0FFF]/g]
 ];
 
+/**
+ * Cached length of the above script expression.
+ */
+
 unicodeBlockCount = unicodeBlocks.length;
 
 /**
- * Deep regular sort on the number at `1` in both objects. E.g. [1, 5, 20];
+ * Deep regular sort on the number at `1` in both objects.
  *
- * @param {Array} a
- * @param {Array} b
- * @api private
+ * @example
+ *   > [[0, 20], [0, 1], [0, 5]].sort(sort);
+ *   // [[0, 1], [0, 5], [0, 20]]
+ *
+ * @param {{1: number}} a
+ * @param {{1: number}} b
  */
+
 function sort(a, b) {
     return a[1] - b[1];
 }
 
 /**
- * Get trigrams from a given value.
+ * Get the distance between an array of trigram--count tuples,
+ * and a language dictionary.
  *
- * @example Pads the start and end of the value.
- *     getTrigrams('a') // ['  a', ' a ', 'a  '];
- *
- * @param {string} value
- * @return {string[]} - An array containing the trigrams;
- * @api private
+ * @param {Array.<Array.<string, number>>} trigrams - An
+ *   array containing trigram--count tupples.
+ * @param {Object.<string, number>} model - Object
+ *   containing weighted trigrams.
+ * @return {number} - The distance between the two.
  */
-function getTrigrams(value) {
-    var iterator = -3,
-        trigrams = [],
-        length;
 
-    value = value.split('');
-    length = value.length;
-
-    while (++iterator < length) {
-        trigrams[iterator + 2] = (value[iterator] || ' ') +
-            (value[iterator + 1] || ' ') +
-            (value[iterator + 2] || ' ');
-    }
-
-    return trigrams;
-}
-
-/**
- * Get an object with trigrams as its attributes, and their occurence count
- * as their values
- *
- * @param {string} value
- * @return {Object.<string, number>} - Object containing weighted trigrams.
- * @api private
- */
-function getObjectModel(value) {
-    var trigrams = getTrigrams(value),
-        objectModel = {},
-        iterator = -1,
-        length = trigrams.length,
-        trigram;
-
-    while (++iterator < length) {
-        trigram = trigrams[iterator];
-
-        if (trigram in objectModel) {
-            objectModel[trigram]++;
-        } else {
-            objectModel[trigram] = 1;
-        }
-    }
-
-    return objectModel;
-}
-
-/**
- * Get the array containing trigram--count tuples from a given value.
- *
- * @param {string} value
- * @return {Array<string, number>[]} - An array containing trigram--count
- *     tupples.
- * @api private
- */
-function getCountedTrigrams(value) {
-    var objectModel = getObjectModel(value),
-        countedTrigrams = [],
-        trigram;
-
-    for (trigram in objectModel) {
-        countedTrigrams.push([trigram, objectModel[trigram]]);
-    }
-
-    return countedTrigrams;
-}
-
-/**
- * Get the ditsance between an array of trigram--count tuples, and a
- * language-model
- *
- * @param {Array<string, number>[]} trigrams - An array containing
- *     trigram--count tupples.
- * @param {Object} model - A language model.
- * @return {number} - The difference between the two.
- * @api private
- */
 function getDistance(trigrams, model) {
-    var distance = 0,
-        iterator = -1,
-        length = trigrams.length,
-        trigram, difference;
+    var distance,
+        index,
+        trigram,
+        difference;
 
-    while (++iterator < length) {
-        trigram = trigrams[iterator];
+    distance = 0;
+    index = trigrams.length;
+
+    while (index--) {
+        trigram = trigrams[index];
 
         if (trigram[0] in model) {
             difference = trigram[1] - model[trigram[0]];
@@ -3240,51 +4139,58 @@ function getDistance(trigrams, model) {
 }
 
 /**
- * Get the difference between an array of trigram--count tuples, and multiple
- * languages.
+ * Get the distance between an array of trigram--count tuples,
+ * and multiple languages.
  *
- * @param {Array<string, number>[]} trigrams - An array containing
- *     trigram--count tupples.
- * @param {string[]} languages - A list of languages.
- * @return {Array<string, number>[]} - An array containing language--distance
- *     tupples.
- * @api private
+ * @param {Array.<Array.<string, number>>} trigrams - An
+ *   array containing trigram--count tupples.
+ * @param {Array.<string>} languages - multiple language
+ *   codes to test against.
+ * @return {Array.<Array.<string, number>>} An array
+ *   containing language--distance tuples.
  */
+
 function getDistances(trigrams, languages) {
-    var distances, iterator, length, language, model;
+    var distances,
+        index,
+        language,
+        model;
 
     distances = [];
-    iterator = -1;
-    length = languages.length;
+    index = languages.length;
 
-    while (++iterator < length) {
-        language = languages[iterator];
+    while (index--) {
+        language = languages[index];
         model = models[language];
 
-        distances[iterator] = [language, getDistance(trigrams, model)];
+        distances[index] = [language, getDistance(trigrams, model)];
     }
 
     return distances.sort(sort);
 }
 
 /**
- * Get an object listing how many characters in a certain script occur in
- * the given value.
+ * Get an object listing, from a given value, per script
+ * the ammount of characters.
  *
- * @param {string} value - The value to parse.
- * @return {Object.<string, number>} - An object containing each script in
- *     `unicodeBlocks`, and how many times characters in that script occur
- *     in the given value.
- * @api private
+ * @param {string} value - The value to test.
+ * @return {Object.<string, number>} An object with scripts
+ *   as keys and character occurrance couns as values.
  */
-function getScripts(value) {
-    var iterator = -1,
-        scripts = {},
-        length = value.length,
-        script, count;
 
-    while (++iterator < unicodeBlockCount) {
-        script = unicodeBlocks[iterator];
+function getScripts(value) {
+    var index,
+        scripts,
+        length,
+        script,
+        count;
+
+    index = unicodeBlockCount;
+    scripts = {};
+    length = value.length;
+
+    while (index--) {
+        script = unicodeBlocks[index];
         count = value.match(script[1]);
 
         scripts[script[0]] = (count ? count.length : 0) / length;
@@ -3294,85 +4200,101 @@ function getScripts(value) {
 }
 
 /**
- * Get a list of probably languages the given source is in.
+ * Create a single tuple as a list of tuples from a given
+ * language code.
  *
- * @param {string} value - The value to parse.
- * @return {Array.<string, number>[]} - An array containing
- *     language--probability tuples.
- * @api public
+ * @param {Array.<string, number>} An single
+ *   language--distance tuple.
+ * @return {Array.<Array.<string, number>>} An array
+ *   containing a single language--distance.
  */
+
+function singleLanguageTuples(language) {
+    return [[language, 1]];
+}
+
+/**
+ * Get a list of probable languages the given value is
+ * written in.
+ *
+ * @param {string} value - The value to test.
+ * @return {Array.<Array.<string, number>>} An array
+ *   containing language--distance tuples.
+ */
+
 function detectAll(value) {
-    var scripts, distances, iterator, singleton, trigrams;
+    var scripts,
+        distances,
+        index,
+        singleton,
+        trigrams;
 
     if (!value) {
-        return UNDETERMINED.concat();
+        return singleLanguageTuples('und');
     }
 
-    value = value
-        .substr(0, MAX_LENGTH)
-        .replace(/[\u0021-\u0040]+/g, '')
-        .toLowerCase();
+    value = value.substr(0, MAX_LENGTH);
 
     scripts = getScripts(value);
 
     if (
         scripts.hangulSyllables +
         scripts.hangulJamo +
-        scripts.hangulCompatibilityJamo >= 0.4
+        scripts.hangulCompatibilityJamo >= FOURTY_PERCENT
     ) {
-        return [['ko', 1]];
+        return singleLanguageTuples('ko');
     }
 
-    if (scripts.greekAndCoptic >= 0.4) {
-        return [['el', 1]];
+    if (scripts.greekAndCoptic >= FOURTY_PERCENT) {
+        return singleLanguageTuples('el');
     }
 
     if (
         scripts.hiragana +
         scripts.katakana +
-        scripts.katakanaPhoneticExtensions >= 0.2
+        scripts.katakanaPhoneticExtensions >= TWENTY_PERCENT
     ) {
-        return [['ja', 1]];
+        return singleLanguageTuples('ja');
     }
 
     if (
         scripts.CJKUnifiedIdeographs +
         scripts.bopomofo +
         scripts.bopomofoExtended +
-        scripts.xangXiRadicals >= 0.4
+        scripts.xangXiRadicals >= FOURTY_PERCENT
     ) {
-        return [['zh', 1]];
+        return singleLanguageTuples('zh');
     }
 
     if (value.length < MIN_LENGTH) {
-        return UNDETERMINED.concat();
+        return singleLanguageTuples('und');
     }
 
-    iterator = -1;
+    index = singletonsLength;
 
-    while (++iterator < singletonsLength) {
-        singleton = SINGLETONS[iterator];
+    while (index--) {
+        singleton = SINGLETONS[index];
 
-        if (scripts[singleton[0]] >= 0.4) {
-            return [[singleton[1], 1]];
+        if (scripts[singleton[0]] >= FOURTY_PERCENT) {
+            return singleLanguageTuples(singleton[1]);
         }
     }
 
-    trigrams = getCountedTrigrams(value);
+    trigrams = utilities.asTuples(value);
 
-    if (scripts.cyrillic >= 0.4) {
+    if (scripts.cyrillic >= FOURTY_PERCENT) {
         return getDistances(trigrams, CYRILLIC);
     }
 
     if (
         scripts.arabic +
         scripts.arabicPresentationFormsA +
-        scripts.arabicPresentationFormsB >= 0.4
+        scripts.arabicPresentationFormsB >= FOURTY_PERCENT
     ) {
         return getDistances(trigrams, ARABIC);
     }
 
-    if (scripts.devanagari >= 0.4) {
+    if (scripts.devanagari >= FOURTY_PERCENT) {
         return getDistances(trigrams, DEVANAGARI);
     }
 
@@ -3386,23 +4308,32 @@ function detectAll(value) {
 }
 
 /**
- * Get the most probable languages the given source is in.
+ * Get the most probable language the given value is
+ * written in.
  *
- * @param {string} value - The value to parse.
- * @return {string} - The most probable language.
- * @api public
+ * @param {string} value - The value to test.
+ * @param {string} The most probable language.
  */
+
 function detect(value) {
     return detectAll(value)[0][0];
 }
 
+/**
+ * Expose `detectAll` on `franc`.
+ */
+
 detect.all = detectAll;
+
+/**
+ * Expose `franc`.
+ */
 
 module.exports = detect;
 
 });
 
-require.define("wooorm~franc@0.1.0/data.json", {
+require.define("wooorm~franc@0.1.1/data.json", {
     "af": "ie | di|die|en |ing|an | en|van| va|ng |te |n d|ver|er |e v| ge| be|de | ve|nde| in| te|le |der|ers|et |oor| 'n|'n |at |eer|ste|ord|aar|sie| wa|es |e s|aan| on|is |in |e o|rde|e b|asi|rin|ond|e w|el | is|and|e e|eid|e d|om |ke | om|eri| wo|e g|r d|ale|wat| vo|id |it |rd | aa|lik| we|t d| op|e t|ngs|se |end|uit| st| le|ens|ter| re|e a|ies|wor|g v|sta|n s| na| pr|n o| me|al |of | vi|erd|lee|e k| de|ite|erk|ik |e r|e p|n v|e i|e n|een|eli|wer| of| da|tel|nie|ike|s e|taa|ge |vir|hei|ir |reg|ede|s v|ur |pro|ele|ion|wet|e l| mo|e m|daa|sio|s d| he| to|ent|ard|nge| oo|eur|lle|ien|n b|eke|lin|raa| ni|ont|bes|rdi|voo|ns |n a|del|dig|nas| sa| gr|nis|kom| ui|men|op |ins|ona|ere|s o| so|n g|ig |moe| ko|rs |ges|nal|vol|e h|geb|rui|ang|ige|oet|ar |wys|lig|as |n w| as|met|gs |deu|t v|aal|erw|dit|ken|sse|kel| hu|ewe|din|n t| se|est|ika|n p|ntw|t i|eni| ka|n e|doe|ali|eme|gro|nte| ho|nsi|gen|ier|gew|n h|or | ma|ind|ne |ek |aat|n '| sk|ide| ta|dat|ska|ger|soo|n k|s i| af|tee|nd |eel|hul|nee|woo|rik|d v|n m|re |art|ebr|lan|kke|ron|aam|tre|str|kan|ree|lei|t o|gra|het|evo|tan|den|ist| do|bru|toe|olg|rsk|uik|rwy|min|lge|g e|g o|nst|r v|gte|waa|we |ans|esi|ese|voe|epa|gel| hi|vin|nse|s w|s t|tei|eit|pre",
     "ar": " ال|الع|لعر|عرا|راق| في|في |ين |ية |ن ا|الم|ات |من |ي ا| من|الأ|ة ا|اق | وا|اء |الإ| أن|وال|ما | عل|لى |ت ا|ون |هم |اقي|ام |ل ا|أن |م ا|الت|لا |الا|ان |ها |ال |ة و|ا ا|رها|لام|يين| ول|لأم|نا |على|ن ي|الب|اد |الق|د ا|ذا |ه ا| با|الد|ب ا|مري|لم | إن| لل|سلا|أمر|ريك|مة |ى ا|ا ي| عن| هذ|ء ا|ر ا|كان|قتل|إسل|الح|وا | إل|ا أ|بال|ن م|الس|رة |لإس|ن و|هاب|ي و|ير | كا|لة |يات| لا|انت|ن أ|يكي|الر|الو|ة ف|دة |الج|قي |وي |الذ|الش|امي|اني|ذه |عن |لما|هذه|ول |اف |اوي|بري|ة ل| أم| لم| ما|يد | أي|إره|ع ا|عمل|ولا|إلى|ابي|ن ف|ختط|لك |نه |ني |إن |دين|ف ا|لذي|ي أ|ي ب| وأ|ا ع|الخ|تل |تي |قد |لدي| كل| مع|اب |اخت|ار |الن|علا|م و|مع |س ا|كل |لاء|ن ب|ن ت|ي م|عرب|م ب| وق| يق|ا ل|ا م|الف|تطا|داد|لمس|له |هذا| مح|ؤلا|بي |ة م|ن ل|هؤل|كن |لإر|لتي| أو| ان| عم|ا ف|ة أ|طاف|عب |ل م|ن ع|ور |يا | يس|ا ت|ة ب|راء|عال|قوا|قية|لعا|م ي|مي |مية|نية|أي |ابا|بغد|بل |رب |عما|غدا|مال|ملي|يس | بأ| بع| بغ| وم|بات|بية|ذلك|عة |قاو|قيي|كي |م م|ي ع| عر| قا|ا و|رى |ق ا|وات|وم | هؤ|ا ب|دام|دي |رات|شعب|لان|لشع|لقو|ليا|ن ه|ي ت|ي ي| وه| يح|جرا|جما|حمد|دم |كم |لاو|لره|ماع|ن ق|نة |هي | بل| به| له| وي|ا ك|اذا|اع |ت م|تخا|خاب|ر م|لمت|مسل|ى أ|يست|يطا| لأ| لي|أمن|است|بعض|ة ت|ري |صدا|ق و|قول|مد |نتخ|نفس|نها|هنا|أعم|أنه|ائن|الآ|الك|حة |د م|ر ع|ربي",
     "az": "lər|in |ın |lar|da |an |ir |də |ki | bi|ən |əri|arı|ər |dir|nda| ki|rin|nın|əsi|ini| ed| qa| tə| ba| ol|ası|ilə|rın| ya|anı| və|ndə|ni |ara|ını|ınd| bu|si |ib |aq |dən|iya|nə |rə |n b|sın|və |iri|lə |nin|əli| de| mü|bir|n s|ri |ək | az| sə|ar |bil|zər|bu |dan|edi|ind|man|un |ərə| ha|lan|yyə|iyy| il| ne|r k|ə b| is|na |nun|ır | da| hə|a b|inə|sin|yan|ərb| də| mə| qə|dır|li |ola|rba|azə|can|lı |nla| et| gö|alı|ayc|bay|eft|ist|n i|nef|tlə|yca|yət|əcə| la|ild|nı |tin|ldi|lik|n h|n m|oyu|raq|ya |əti| ar|ada|edə|mas|sı |ına|ə d|ələ|ayı|iyi|lma|mək|n d|ti |yin|yun|ət |azı|ft |i t|lli|n a|ra | cə| gə| ko| nə| oy|a d|ana|cək|eyi|ilm|irl|lay|liy|lub|n ə|ril|rlə|unu|ver|ün |ə o|əni| he| ma| on| pa|ala|dey|i m|ima|lmə|mət|par|yə |ətl| al| mi| sa| əl|adı|akı|and|ard|art|ayi|i a|i q|i y|ili|ill|isə|n o|n q|olu|rla|stə|sə |tan|tel|yar|ədə| me| rə| ve| ye|a k|at |baş|diy|ent|eti|həs|i i|ik |la |miş|n n|nu |qar|ran|tər|xan|ə a|ə g|ə t| dü|ama|b k|dil|era|etm|i b|kil|mil|n r|qla|r s|ras|siy|son|tim|yer|ə k| gü| so| sö| te| xa|ai |bar|cti|di |eri|gör|gün|gəl|hbə|ihə|iki|isi|lin|mai|maq|n k|n t|n v|onu|qan|qəz|tə |xal|yib|yih|zet|zır|ıb |ə m|əze| br| in| ir| pr| ta| to| üç|a o|ali|ani|anl|aql|azi|bri",
@@ -3470,21 +4401,46 @@ require.define("wooorm~franc@0.1.0/data.json", {
     "zu": "oku|la |nga| ng|a n| ku|a k|thi| uk|ezi|e n|uku|le |lo |hi |wa | no|a u|ela|we |a i|ni |ele|zin|uth|ama|elo|pha|ing|aba|ath|and|enz|eth|esi|ma |lel| um| ka|the|ung|nge|ngo|tho|nye|kwe|eni|izi|ye | kw|ndl|ho |a e|na |zi |het|kan|e u|e i|und|ise|isi|nda|kha|ba |i k|nom|fun| ez| iz|ke |ben|o e|isa|zwe|kel|ka |aka|nzi|o n|e k|oma|kwa| ne|any|ang|hla|i u|mth|kub|o k|ana|ane|ikh|ebe|kut|ha | is|azi|ulu|seb|ala|onk|ban|i e|azw|wen| ab|han|a a|i n|imi|lan|hat|lwa| na|ini|akh|li |ngu|nke|nok|ume|eke|elw|yo |aph|kus| es| ok|iph| im|mel|i i| lo| in| am|kho|za |gok|sek|lun|kun|lwe|sha|sik|kuf|hak|a y|thu|sa |o u|khu|ayo|hul|e a|ali|eng|lu |ne | ko|eli|uba|dle|e e|ith| yo|a l|nel|mis| si|kul|a o|sis|lok|gen|o z|i a|emi|uma|eka|alo|man|isw|tha|o i|lon|so |uph|uhl|ntu|zim|mal|ind|wez| ba|o o| yi| we|ula|phe|o y|ile|o l|wo |wel|ga |tu |hle|okw|fan| le|kaz|ase|ani|nde|bo |ngi|ule| em|men|iny|amb|mbi|gan|ifu|o s|ant|hel|ika|ona|i l|fut| fu|ze |u a|nhl|nin| zo|end|sig|u k|gab|ufa|ish|ush|kuz|no |gam|kuh| ye|nya|nez|zis|dlu|kat|dla|tsh| se|ike|kuq|gu |osi|swa|lul| zi|ima|e l|kup|mo |nza|asi|ko |kum|lek|she|umt|uny|yok|wan|wam|ame|ong|lis|mkh|ahl|ale|use|o a|alu|gap|si |hlo|nje|omt|o w|okh|he |kom|i s"
 });
 
-require.register("wooorm~retext-visit@0.1.0", function (exports, module) {
+require.register("wooorm~retext-visit@0.1.1", function (exports, module) {
 'use strict';
 
-exports = module.exports = function () {};
+/**
+ * Define `plugin`.
+ */
+
+function plugin() {}
+
+/**
+ * Invoke `callback` for every descendant of the
+ * operated on context.
+ *
+ * @param {function(Node): boolean?} callback - Visitor.
+ *   Stops visiting when the return value is `false`.
+ * @this {Node} Context to search in.
+ */
 
 function visit(callback) {
-    var node = this.head, next;
+    var node,
+        next;
+
+    node = this.head;
 
     while (node) {
-        // Allow for removal of the node in the callback.
+        /**
+         * Allow for removal of the node by `callback`.
+         */
+
         next = node.next;
 
         if (callback(node) === false) {
             return;
         }
+
+        /**
+         * If possible, invoke the node's own `visit`
+         *  method, otherwise call retext-visit's
+         * `visit` method.
+         */
 
         (node.visit || visit).call(node, callback);
 
@@ -3492,88 +4448,173 @@ function visit(callback) {
     }
 }
 
+/**
+ * Invoke `callback` for every descendant with a given
+ * `type` in the operated on context.
+ *
+ * @param {string} type - Type of a node.
+ * @param {function(Node): boolean?} callback - Visitor.
+ *   Stops visiting when the return value is `false`.
+ * @this {Node} Context to search in.
+ */
+
 function visitType(type, callback) {
-    var callbackWrapper = function (node) {
+    /**
+     * A wrapper for `callback` to check it the node's
+     * type property matches `type`.
+     *
+     * @param {node} type - Descendant.
+     * @return {*} Passes `callback`s return value
+     *   through.
+     */
+
+    function wrapper(node) {
         if (node.type === type) {
             return callback(node);
         }
-    };
-    this.visit.call(this, callbackWrapper);
+    }
+
+    this.visit(wrapper);
 }
 
 function attach(retext) {
-    var TextOM = retext.parser.TextOM,
-        parentPrototype = TextOM.Parent.prototype,
-        elementPrototype = TextOM.Element.prototype;
+    var TextOM,
+        parentPrototype,
+        elementPrototype;
+
+    TextOM = retext.TextOM;
+    parentPrototype = TextOM.Parent.prototype;
+    elementPrototype = TextOM.Element.prototype;
+
+    /**
+     * Expose `visit` and `visitType` on Parents.
+     *
+     * Due to multiple inheritance of Elements (Parent
+     * and Child), these methods are explicitly added.
+     */
 
     elementPrototype.visit = parentPrototype.visit = visit;
     elementPrototype.visitType = parentPrototype.visitType = visitType;
 }
 
-exports.attach = attach;
+/**
+ * Expose `attach`.
+ */
+
+plugin.attach = attach;
+
+/**
+ * Expose `plugin`.
+ */
+
+exports = module.exports = plugin;
 
 });
 
-require.register("wooorm~retext-language@0.1.1", function (exports, module) {
+require.register("wooorm~retext-language@0.1.2", function (exports, module) {
 'use strict';
 
-var franc = require("wooorm~franc@0.1.0"),
-    visit = require("wooorm~retext-visit@0.1.0");
+/**
+ * Dependencies.
+ */
+
+var franc,
+    visit;
+
+franc = require("wooorm~franc@0.1.1");
+visit = require("wooorm~retext-visit@0.1.1");
 
 /**
  * Deep regular sort on the number at `1` in both objects.
  *
- * @param {Array} a
- * @param {Array} b
- * @api private
+ * @example
+ *   > [[0, 20], [0, 1], [0, 5]].sort(sort);
+ *   // [[0, 1], [0, 5], [0, 20]]
+ *
+ * @param {{1: number}} a
+ * @param {{1: number}} b
  */
+
 function sort(a, b) {
     return a[1] - b[1];
 }
 
-function sortDistanceObject(distanceObject) {
-    var distances = [],
-        iterator = -1,
+/**
+ * Get a sorted array containing language--distance
+ * tuples from an object with trigrams as its
+ * attributes, and their occurence count as their
+ * values.
+ *
+ * @param {Object.<string, number>} dictionary
+ * @return {Array.<Array.<string, number>>} An
+ *   array containing language--distance tupples,
+ *   sorted by count (low to high).
+ */
+
+function sortDistanceObject(dictionary) {
+    var distances,
         distance;
 
-    for (distance in distanceObject) {
-        distances[++iterator] = [distance, distanceObject[distance]];
+    distances = [];
+
+    for (distance in dictionary) {
+        distances.push([distance, dictionary[distance]]);
     }
 
     return distances.sort(sort);
 }
 
+/**
+ * Set languages on `node` from multiple
+ * language--distance tuples.
+ *
+ * @param {Node} node
+ * @param {Array.<Array.<string, number>>} languages
+ */
+
 function setLanguages(node, languages) {
-    var primaryLanguage = languages[0][0];
+    var primaryLanguage;
+
+    primaryLanguage = languages[0][0];
 
     node.data.language = primaryLanguage === 'und' ? null : primaryLanguage;
     node.data.languages = languages;
 }
 
+/**
+ * Handler for a change inside a parent.
+ *
+ * @param {Parent} parent
+ */
+
 function onchangeinparent(parent) {
-    var node, languageObject, languages, iterator, length, language;
+    var node,
+        dictionary,
+        languages,
+        tuple,
+        index;
 
     if (!parent) {
         return;
     }
 
+    dictionary = {};
+
     node = parent.head;
-    languageObject = {};
 
     while (node) {
         languages = node.data.languages;
 
         if (languages) {
-            iterator = -1;
-            length = languages.length;
+            index = languages.length;
 
-            while (++iterator < length) {
-                language = languages[iterator];
+            while (index--) {
+                tuple = languages[index];
 
-                if (language[0] in languageObject) {
-                    languageObject[language[0]] += language[1];
+                if (tuple[0] in dictionary) {
+                    dictionary[tuple[0]] += tuple[1];
                 } else {
-                    languageObject[language[0]] = language[1];
+                    dictionary[tuple[0]] = tuple[1];
                 }
             }
         }
@@ -3581,34 +4622,66 @@ function onchangeinparent(parent) {
         node = node.next;
     }
 
-    setLanguages(parent, sortDistanceObject(languageObject));
+    setLanguages(parent, sortDistanceObject(dictionary));
 
     onchangeinparent(parent.parent);
 }
 
-function onchange() {
-    setLanguages(this, franc.all(this.toString()));
+/**
+ * Handler for a change inside a `SentenceNode`.
+ *
+ * @this {SentenceNode}
+ */
 
-    onchangeinparent(this.parent);
+function onchange() {
+    var self;
+
+    self = this;
+
+    setLanguages(self, franc.all(self.toString()));
+
+    onchangeinparent(self.parent);
 }
 
-function plugin(tree) {
+/**
+ * Define `language`.
+ *
+ * @param {Node} tree
+ */
+
+function language(tree) {
     tree.visitType(tree.PARAGRAPH_NODE, onchangeinparent);
 }
 
-exports = module.exports = plugin;
+/**
+ * Define `attach`.
+ *
+ * @param {Retext} retext
+ */
 
 function attach(retext) {
-    var TextOM = retext.parser.TextOM;
+    var SentenceNode;
 
     retext.use(visit);
 
-    TextOM.SentenceNode.on('changetextinside', onchange);
-    TextOM.SentenceNode.on('removeinside', onchange);
-    TextOM.SentenceNode.on('insertinside', onchange);
+    SentenceNode = retext.parser.TextOM.SentenceNode;
+
+    SentenceNode.on('changetextinside', onchange);
+    SentenceNode.on('removeinside', onchange);
+    SentenceNode.on('insertinside', onchange);
 }
 
-exports.attach = attach;
+/**
+ * Expose `attach`.
+ */
+
+language.attach = attach;
+
+/**
+ * Expose `language`.
+ */
+
+module.exports = language;
 
 });
 
@@ -3779,8 +4852,8 @@ module.exports = fixtures;
 });
 
 require.register("retext-language-gh-pages", function (exports, module) {
-var Retext = require("wooorm~retext@0.1.1");
-var language = require("wooorm~retext-language@0.1.1");
+var Retext = require("wooorm~retext@0.2.0-rc.3");
+var language = require("wooorm~retext-language@0.1.2");
 var debounce = require("component~debounce@1.0.0");
 var fixtures = require("retext-language-gh-pages/fixtures.js");
 
@@ -3802,7 +4875,11 @@ function getRandomFixture() {
 }
 
 function detectLanguage() {
-    visualiseResults(retext.parse(inputElement.value).data.languages);
+    retext.parse(inputElement.value, function (err, tree) {
+        if (err) throw err;
+
+        visualiseResults(tree.data.languages);
+    });
 }
 
 function visualiseResults(results) {

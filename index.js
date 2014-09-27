@@ -21,7 +21,11 @@ function getRandomFixture() {
 }
 
 function detectLanguage() {
-    visualiseResults(retext.parse(inputElement.value).data.languages);
+    retext.parse(inputElement.value, function (err, tree) {
+        if (err) throw err;
+
+        visualiseResults(tree.data.languages);
+    });
 }
 
 function visualiseResults(results) {
