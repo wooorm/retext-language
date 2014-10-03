@@ -1,5 +1,5 @@
 
-n.n.n / 2014-10-03
+0.2.1 / 2014-10-03
 ==================
 
  * Update component.json, bower.json for franc@0.2.0
