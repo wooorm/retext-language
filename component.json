@@ -4,7 +4,7 @@
   "repository": "wooorm/retext-language",
   "dependencies": {
     "wooorm/retext": "^0.2.0-rc.3",
-    "wooorm/retext-language": "^0.2.0",
+    "wooorm/retext-language": "^0.2.1",
     "component/debounce": "^1.0.0"
   },
   "scripts": [
