@@ -14,8 +14,6 @@ inputElement.addEventListener('input', debounce(detectLanguage, 50));
 
 inputElement.value = getRandomFixture();
 
-console.log(fixtures);
-
 function getRandomFixture() {
     return fixtures[Math.floor(Math.random() * fixtures.length)];
 }
@@ -30,18 +28,16 @@ function detectLanguage() {
 
 function visualiseResults(results) {
     wrapperElement.style.display = '';
-    cleanOutputElement();
+
+    while (outputElement.firstElementChild) {
+        outputElement.removeChild(outputElement.firstElementChild);
+    }
+
     results = results.map(createResult);
 
     results.forEach(function (node) {
         outputElement.appendChild(node);
     });
-}
-
-function cleanOutputElement() {
-    while (outputElement.firstElementChild) {
-        outputElement.removeChild(outputElement.firstElementChild);
-    }
 }
 
 function createResult(result, n) {
