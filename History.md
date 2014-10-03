@@ -1,4 +1,11 @@
 
+n.n.n / 2014-10-03
+==================
+
+ * Update spec for a9e7794
+ * Update language detection in API
+ * Update franc to 0.2.0
+
 0.1.2 / 2014-09-27
 ==================
 
