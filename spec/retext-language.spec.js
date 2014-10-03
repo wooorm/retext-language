@@ -44,23 +44,23 @@ document =
     'All human beings are born. ' +
     'Tous les êtres humains naissent.';
 
-languages = ['af', 'pt-BR', 'en', 'fr'];
+languages = ['afr', 'por', 'eng', 'fra'];
 
 paragraphLanguages = [
-    ['af', 'pt-BR'], ['en', 'fr']
+    languages.slice(0, 2), languages.slice(2)
 ];
 
 otherSentences = [
     'Bütün insanlar ləyaqət və hüquqlarına görə.',
     'Tots els éssers humans neixen lliures i iguals',
-    'Genir pawb yn rhydd ac yn gydradd â\'i gilydd',
-    'Heghlu\'meH QaQ jajvam'
+    'چونکہ ہر انسان کی ذاتی عز',
+    '人類社会のすべての構成員の固有の尊厳と平等で譲るこ'
 ];
 
-otherLanguages = ['az', 'ca', 'cy', 'tlh'];
+otherLanguages = ['azj', 'cat', 'urd', 'jpn'];
 
 otherParagraphLanguages = [
-    ['az', 'ca'], ['cy', 'tlh']
+    otherLanguages.slice(0, 2), otherLanguages.slice(2)
 ];
 
 /**
