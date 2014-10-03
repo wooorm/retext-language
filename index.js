@@ -77,8 +77,7 @@ function onchangeinparent(parent) {
     var node,
         dictionary,
         languages,
-        tuple,
-        index;
+        tuple;
 
     if (!parent) {
         return;
@@ -92,16 +91,12 @@ function onchangeinparent(parent) {
         languages = node.data.languages;
 
         if (languages) {
-            index = languages.length;
+            tuple = languages[0];
 
-            while (index--) {
-                tuple = languages[index];
-
-                if (tuple[0] in dictionary) {
-                    dictionary[tuple[0]] += tuple[1];
-                } else {
-                    dictionary[tuple[0]] = tuple[1];
-                }
+            if (tuple[0] in dictionary) {
+                dictionary[tuple[0]] += tuple[1];
+            } else {
+                dictionary[tuple[0]] = tuple[1];
             }
         }
 
