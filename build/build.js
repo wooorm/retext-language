@@ -52,6 +52,1571 @@ require.define = function (name, exports) {
     exports: exports
   };
 };
+require.register("visionmedia~co@3.1.0", function (exports, module) {
+
+/**
+ * slice() reference.
+ */
+
+var slice = Array.prototype.slice;
+
+/**
+ * Expose `co`.
+ */
+
+module.exports = co;
+
+/**
+ * Wrap the given generator `fn` and
+ * return a thunk.
+ *
+ * @param {Function} fn
+ * @return {Function}
+ * @api public
+ */
+
+function co(fn) {
+  var isGenFun = isGeneratorFunction(fn);
+
+  return function (done) {
+    var ctx = this;
+
+    // in toThunk() below we invoke co()
+    // with a generator, so optimize for
+    // this case
+    var gen = fn;
+
+    // we only need to parse the arguments
+    // if gen is a generator function.
+    if (isGenFun) {
+      var args = slice.call(arguments), len = args.length;
+      var hasCallback = len && 'function' == typeof args[len - 1];
+      done = hasCallback ? args.pop() : error;
+      gen = fn.apply(this, args);
+    } else {
+      done = done || error;
+    }
+
+    next();
+
+    // #92
+    // wrap the callback in a setImmediate
+    // so that any of its errors aren't caught by `co`
+    function exit(err, res) {
+      setImmediate(function(){
+        done.call(ctx, err, res);
+      });
+    }
+
+    function next(err, res) {
+      var ret;
+
+      // multiple args
+      if (arguments.length > 2) res = slice.call(arguments, 1);
+
+      // error
+      if (err) {
+        try {
+          ret = gen.throw(err);
+        } catch (e) {
+          return exit(e);
+        }
+      }
+
+      // ok
+      if (!err) {
+        try {
+          ret = gen.next(res);
+        } catch (e) {
+          return exit(e);
+        }
+      }
+
+      // done
+      if (ret.done) return exit(null, ret.value);
+
+      // normalize
+      ret.value = toThunk(ret.value, ctx);
+
+      // run
+      if ('function' == typeof ret.value) {
+        var called = false;
+        try {
+          ret.value.call(ctx, function(){
+            if (called) return;
+            called = true;
+            next.apply(ctx, arguments);
+          });
+        } catch (e) {
+          setImmediate(function(){
+            if (called) return;
+            called = true;
+            next(e);
+          });
+        }
+        return;
+      }
+
+      // invalid
+      next(new TypeError('You may only yield a function, promise, generator, array, or object, '
+        + 'but the following was passed: "' + String(ret.value) + '"'));
+    }
+  }
+}
+
+/**
+ * Convert `obj` into a normalized thunk.
+ *
+ * @param {Mixed} obj
+ * @param {Mixed} ctx
+ * @return {Function}
+ * @api private
+ */
+
+function toThunk(obj, ctx) {
+
+  if (isGeneratorFunction(obj)) {
+    return co(obj.call(ctx));
+  }
+
+  if (isGenerator(obj)) {
+    return co(obj);
+  }
+
+  if (isPromise(obj)) {
+    return promiseToThunk(obj);
+  }
+
+  if ('function' == typeof obj) {
+    return obj;
+  }
+
+  if (isObject(obj) || Array.isArray(obj)) {
+    return objectToThunk.call(ctx, obj);
+  }
+
+  return obj;
+}
+
+/**
+ * Convert an object of yieldables to a thunk.
+ *
+ * @param {Object} obj
+ * @return {Function}
+ * @api private
+ */
+
+function objectToThunk(obj){
+  var ctx = this;
+  var isArray = Array.isArray(obj);
+
+  return function(done){
+    var keys = Object.keys(obj);
+    var pending = keys.length;
+    var results = isArray
+      ? new Array(pending) // predefine the array length
+      : new obj.constructor();
+    var finished;
+
+    if (!pending) {
+      setImmediate(function(){
+        done(null, results)
+      });
+      return;
+    }
+
+    // prepopulate object keys to preserve key ordering
+    if (!isArray) {
+      for (var i = 0; i < pending; i++) {
+        results[keys[i]] = undefined;
+      }
+    }
+
+    for (var i = 0; i < keys.length; i++) {
+      run(obj[keys[i]], keys[i]);
+    }
+
+    function run(fn, key) {
+      if (finished) return;
+      try {
+        fn = toThunk(fn, ctx);
+
+        if ('function' != typeof fn) {
+          results[key] = fn;
+          return --pending || done(null, results);
+        }
+
+        fn.call(ctx, function(err, res){
+          if (finished) return;
+
+          if (err) {
+            finished = true;
+            return done(err);
+          }
+
+          results[key] = res;
+          --pending || done(null, results);
+        });
+      } catch (err) {
+        finished = true;
+        done(err);
+      }
+    }
+  }
+}
+
+/**
+ * Convert `promise` to a thunk.
+ *
+ * @param {Object} promise
+ * @return {Function}
+ * @api private
+ */
+
+function promiseToThunk(promise) {
+  return function(fn){
+    promise.then(function(res) {
+      fn(null, res);
+    }, fn);
+  }
+}
+
+/**
+ * Check if `obj` is a promise.
+ *
+ * @param {Object} obj
+ * @return {Boolean}
+ * @api private
+ */
+
+function isPromise(obj) {
+  return obj && 'function' == typeof obj.then;
+}
+
+/**
+ * Check if `obj` is a generator.
+ *
+ * @param {Mixed} obj
+ * @return {Boolean}
+ * @api private
+ */
+
+function isGenerator(obj) {
+  return obj && 'function' == typeof obj.next && 'function' == typeof obj.throw;
+}
+
+/**
+ * Check if `obj` is a generator function.
+ *
+ * @param {Mixed} obj
+ * @return {Boolean}
+ * @api private
+ */
+
+function isGeneratorFunction(obj) {
+  return obj && obj.constructor && 'GeneratorFunction' == obj.constructor.name;
+}
+
+/**
+ * Check for plain object.
+ *
+ * @param {Mixed} val
+ * @return {Boolean}
+ * @api private
+ */
+
+function isObject(val) {
+  return val && Object == val.constructor;
+}
+
+/**
+ * Throw `err` in a new stack.
+ *
+ * This is used when co() is invoked
+ * without supplying a callback, which
+ * should only be for demonstrational
+ * purposes.
+ *
+ * @param {Error} err
+ * @api private
+ */
+
+function error(err) {
+  if (!err) return;
+  setImmediate(function(){
+    throw err;
+  });
+}
+
+});
+
+require.register("matthewmueller~wrap-fn@0.1.1", function (exports, module) {
+/**
+ * Module Dependencies
+ */
+
+var slice = [].slice;
+var co = require("visionmedia~co@3.1.0");
+var noop = function(){};
+
+/**
+ * Export `wrap-fn`
+ */
+
+module.exports = wrap;
+
+/**
+ * Wrap a function to support
+ * sync, async, and gen functions.
+ *
+ * @param {Function} fn
+ * @param {Function} done
+ * @return {Function}
+ * @api public
+ */
+
+function wrap(fn, done) {
+  done = done || noop;
+
+  return function() {
+    var args = slice.call(arguments);
+    var ctx = this;
+
+    // done
+    if (!fn) {
+      return done.apply(ctx, [null].concat(args));
+    }
+
+    // async
+    if (fn.length > args.length) {
+      return fn.apply(ctx, args.concat(done));
+    }
+
+    // generator
+    if (generator(fn)) {
+      return co(fn).apply(ctx, args.concat(done));
+    }
+
+    // sync
+    return sync(fn, done).apply(ctx, args);
+  }
+}
+
+/**
+ * Wrap a synchronous function execution.
+ *
+ * @param {Function} fn
+ * @param {Function} done
+ * @return {Function}
+ * @api private
+ */
+
+function sync(fn, done) {
+  return function () {
+    var ret;
+
+    try {
+      ret = fn.apply(this, arguments);
+    } catch (err) {
+      return done(err);
+    }
+
+    if (promise(ret)) {
+      ret.then(function (value) { done(null, value); }, done);
+    } else {
+      ret instanceof Error ? done(ret) : done(null, ret);
+    }
+  }
+}
+
+/**
+ * Is `value` a generator?
+ *
+ * @param {Mixed} value
+ * @return {Boolean}
+ * @api private
+ */
+
+function generator(value) {
+  return value
+    && value.constructor
+    && 'GeneratorFunction' == value.constructor.name;
+}
+
+
+/**
+ * Is `value` a promise?
+ *
+ * @param {Mixed} value
+ * @return {Boolean}
+ * @api private
+ */
+
+function promise(value) {
+  return value && 'function' == typeof value.then;
+}
+
+});
+
+require.register("segmentio~ware@1.2.0", function (exports, module) {
+/**
+ * Module Dependencies
+ */
+
+var slice = [].slice;
+var wrap = require("matthewmueller~wrap-fn@0.1.1");
+
+/**
+ * Expose `Ware`.
+ */
+
+module.exports = Ware;
+
+/**
+ * Initialize a new `Ware` manager, with optional `fns`.
+ *
+ * @param {Function or Array or Ware} fn (optional)
+ */
+
+function Ware (fn) {
+  if (!(this instanceof Ware)) return new Ware(fn);
+  this.fns = [];
+  if (fn) this.use(fn);
+}
+
+/**
+ * Use a middleware `fn`.
+ *
+ * @param {Function or Array or Ware} fn
+ * @return {Ware}
+ */
+
+Ware.prototype.use = function (fn) {
+  if (fn instanceof Ware) {
+    return this.use(fn.fns);
+  }
+
+  if (fn instanceof Array) {
+    for (var i = 0, f; f = fn[i++];) this.use(f);
+    return this;
+  }
+
+  this.fns.push(fn);
+  return this;
+};
+
+/**
+ * Run through the middleware with the given `args` and optional `callback`.
+ *
+ * @param {Mixed} args...
+ * @param {Function} callback (optional)
+ * @return {Ware}
+ */
+
+Ware.prototype.run = function () {
+  var fns = this.fns;
+  var ctx = this;
+  var i = 0;
+  var last = arguments[arguments.length - 1];
+  var done = 'function' == typeof last && last;
+  var args = done
+    ? slice.call(arguments, 0, arguments.length - 1)
+    : slice.call(arguments);
+
+  // next step
+  function next (err) {
+    if (err) return done(err);
+    var fn = fns[i++];
+    var arr = slice.call(args);
+
+    if (!fn) {
+      return done && done.apply(null, [null].concat(args));
+    }
+
+    wrap(fn, next).apply(ctx, arr);
+  }
+
+  next();
+
+  return this;
+};
+
+});
+
+require.register("wooorm~textom@0.1.1", function (exports, module) {
+'use strict';
+
+/**
+ * Utilities.
+ */
+var arrayPrototype = Array.prototype,
+    arrayUnshift = arrayPrototype.unshift,
+    arrayPush = arrayPrototype.push,
+    arraySlice = arrayPrototype.slice,
+    arrayIndexOf = arrayPrototype.indexOf,
+    arraySplice = arrayPrototype.splice;
+
+/* istanbul ignore if: User forgot a polyfill much? */
+if (!arrayIndexOf) {
+    throw new Error('Missing Array#indexOf() method for TextOM');
+}
+
+var ROOT_NODE = 'RootNode',
+    PARAGRAPH_NODE = 'ParagraphNode',
+    SENTENCE_NODE = 'SentenceNode',
+    WORD_NODE = 'WordNode',
+    PUNCTUATION_NODE = 'PunctuationNode',
+    WHITE_SPACE_NODE = 'WhiteSpaceNode',
+    SOURCE_NODE = 'SourceNode',
+    TEXT_NODE = 'TextNode';
+
+function fire(context, callbacks, args) {
+    var iterator = -1;
+
+    if (!callbacks || !callbacks.length) {
+        return;
+    }
+
+    callbacks = callbacks.concat();
+
+    while (callbacks[++iterator]) {
+        callbacks[iterator].apply(context, args);
+    }
+
+    return;
+}
+
+function canInsertIntoParent(parent, child) {
+    var allowed = parent.allowedChildTypes;
+
+    if (!allowed || !allowed.length || !child.type) {
+        return true;
+    }
+
+    return allowed.indexOf(child.type) > -1;
+}
+
+function validateInsert(parent, item, child) {
+    if (!parent) {
+        throw new TypeError('Illegal invocation: \'' + parent +
+            ' is not a valid argument for \'insert\'');
+    }
+
+    if (!child) {
+        throw new TypeError('\'' + child +
+            ' is not a valid argument for \'insert\'');
+    }
+
+    if (parent === child || parent === item) {
+        throw new Error('HierarchyError: Cannot insert a node into itself');
+    }
+
+    if (!canInsertIntoParent(parent, child)) {
+        throw new Error('HierarchyError: The operation would ' +
+            'yield an incorrect node tree');
+    }
+
+    if (typeof child.remove !== 'function') {
+        throw new Error('The operated on node did not have a ' +
+            '`remove` method');
+    }
+
+    /* Insert after... */
+    if (item) {
+        /* istanbul ignore if: Wrong-usage */
+        if (item.parent !== parent) {
+            throw new Error('The operated on node (the "pointer") ' +
+                'was detached from the parent');
+        }
+
+        /* istanbul ignore if: Wrong-usage */
+        if (arrayIndexOf.call(parent, item) === -1) {
+            throw new Error('The operated on node (the "pointer") ' +
+                'was attached to its parent, but the parent has no ' +
+                'indice corresponding to the item');
+        }
+    }
+}
+
+/**
+ * Inserts the given `child` after (when given), the `item`, and otherwise as
+ * the first item of the given parents.
+ *
+ * @param {Object} parent
+ * @param {Object} item
+ * @param {Object} child
+ * @api private
+ */
+function insert(parent, item, child) {
+    var next;
+
+    validateInsert(parent, item, child);
+
+    /* Detach the child. */
+    child.remove();
+
+    /* Set the child's parent to items parent. */
+    child.parent = parent;
+
+    if (item) {
+        next = item.next;
+
+        /* If item has a next node... */
+        if (next) {
+            /* ...link the child's next node, to items next node. */
+            child.next = next;
+
+            /* ...link the next nodes previous node, to the child. */
+            next.prev = child;
+        }
+
+        /* Set the child's previous node to item. */
+        child.prev = item;
+
+        /* Set the next node of item to the child. */
+        item.next = child;
+
+        /* If the parent has no last node or if item is the parent last node,
+         * link the parents last node to the child. */
+        if (item === parent.tail || !parent.tail) {
+            parent.tail = child;
+            arrayPush.call(parent, child);
+        /* Else, insert the child into the parent after the items index. */
+        } else {
+            arraySplice.call(
+                parent, arrayIndexOf.call(parent, item) + 1, 0, child
+            );
+        }
+    /* If parent has a first node... */
+    } else if (parent.head) {
+        next = parent.head;
+
+        /* Set the child's next node to head. */
+        child.next = next;
+
+        /* Set the previous node of head to the child. */
+        next.prev = child;
+
+        /* Set the parents heads to the child. */
+        parent.head = child;
+
+        /* If the the parent has no last node, link the parents last node to
+         * head. */
+        if (!parent.tail) {
+            parent.tail = next;
+        }
+
+        arrayUnshift.call(parent, child);
+    /* Prepend. There is no `head` (or `tail`) node yet. */
+    } else {
+        /* Set parent's first node to the prependee and return the child. */
+        parent.head = child;
+        parent[0] = child;
+        parent.length = 1;
+    }
+
+    next = child.next;
+
+    child.emit('insert');
+
+    if (item) {
+        item.emit('changenext', child, next);
+        child.emit('changeprev', item, null);
+    }
+
+    if (next) {
+        next.emit('changeprev', child, item);
+        child.emit('changenext', next, null);
+    }
+
+    parent.trigger('insertinside', child);
+
+    return child;
+}
+
+/**
+ * Detach a node from its (when applicable) parent, links its (when
+ * existing) previous and next items to each other.
+ *
+ * @param {Object} node
+ * @api private
+ */
+function remove(node) {
+    /* istanbul ignore if: Wrong-usage */
+    if (!node) {
+        return false;
+    }
+
+    /* Cache self, the parent list, and the previous and next items. */
+    var parent = node.parent,
+        prev = node.prev,
+        next = node.next,
+        indice;
+
+    /* If the item is already detached, return node. */
+    if (!parent) {
+        return node;
+    }
+
+    /* If node is the last item in the parent, link the parents last
+     * item to the previous item. */
+    if (parent.tail === node) {
+        parent.tail = prev;
+    }
+
+    /* If node is the first item in the parent, link the parents first
+     * item to the next item. */
+    if (parent.head === node) {
+        parent.head = next;
+    }
+
+    /* If both the last and first items in the parent are the same,
+     * remove the link to the last item. */
+    if (parent.tail === parent.head) {
+        parent.tail = null;
+    }
+
+    /* If a previous item exists, link its next item to nodes next
+     * item. */
+    if (prev) {
+        prev.next = next;
+    }
+
+    /* If a next item exists, link its previous item to nodes previous
+     * item. */
+    if (next) {
+        next.prev = prev;
+    }
+
+    /* istanbul ignore else: Wrong-usage */
+    if ((indice = arrayIndexOf.call(parent, node)) !== -1) {
+        arraySplice.call(parent, indice, 1);
+    }
+
+    /* Remove links from node to both the next and previous items,
+     * and to the parent. */
+    node.prev = node.next = node.parent = null;
+
+    node.emit('remove', parent);
+
+    if (next) {
+        next.emit('changeprev', prev || null, node);
+        node.emit('changenext', null, next);
+    }
+
+    if (prev) {
+        node.emit('changeprev', null, prev);
+        prev.emit('changenext', next || null, node);
+    }
+
+    parent.trigger('removeinside', node, parent);
+
+    /* Return node. */
+    return node;
+}
+
+function validateSplitPosition(position, length) {
+    if (
+        position === null ||
+        position === undefined ||
+        position !== position ||
+        position === -Infinity
+    ) {
+            position = 0;
+    } else if (position === Infinity) {
+        position = length;
+    } else if (typeof position !== 'number') {
+        throw new TypeError('\'' + position + ' is not a valid ' +
+            'argument for \'#split\'');
+    } else if (position < 0) {
+        position = Math.abs((length + position) % length);
+    }
+
+    return position;
+}
+
+function TextOMConstructor() {
+    /**
+     * Expose `Node`. Initialises a new `Node` object.
+     *
+     * @api public
+     * @constructor
+     */
+    function Node() {
+        if (!this.data) {
+            /** @member {Object} */
+            this.data = {};
+        }
+    }
+
+    var prototype = Node.prototype;
+
+    prototype.on = Node.on = function (name, callback) {
+        var self = this,
+            callbacks;
+
+        if (typeof name !== 'string') {
+            if (name === null || name === undefined) {
+                return self;
+            }
+
+            throw new TypeError('Illegal invocation: \'' + name +
+                ' is not a valid argument for \'listen\'');
+        }
+
+        if (typeof callback !== 'function') {
+            if (callback === null || callback === undefined) {
+                return self;
+            }
+
+            throw new TypeError('Illegal invocation: \'' + callback +
+                ' is not a valid argument for \'listen\'');
+        }
+
+        callbacks = self.callbacks || (self.callbacks = {});
+        callbacks = callbacks[name] || (callbacks[name] = []);
+        callbacks.unshift(callback);
+
+        return self;
+    };
+
+    prototype.off = Node.off = function (name, callback) {
+        var self = this,
+            callbacks, indice;
+
+        if ((name === null || name === undefined) &&
+            (callback === null || callback === undefined)) {
+            self.callbacks = {};
+            return self;
+        }
+
+        if (typeof name !== 'string') {
+            if (name === null || name === undefined) {
+                return self;
+            }
+
+            throw new TypeError('Illegal invocation: \'' + name +
+                ' is not a valid argument for \'listen\'');
+        }
+
+        if (!(callbacks = self.callbacks)) {
+            return self;
+        }
+
+        if (!(callbacks = callbacks[name])) {
+            return self;
+        }
+
+        if (typeof callback !== 'function') {
+            if (callback === null || callback === undefined) {
+                callbacks.length = 0;
+                return self;
+            }
+
+            throw new TypeError('Illegal invocation: \'' + callback +
+                ' is not a valid argument for \'listen\'');
+        }
+
+        if ((indice = callbacks.indexOf(callback)) !== -1) {
+            callbacks.splice(indice, 1);
+        }
+
+        return self;
+    };
+
+    prototype.emit = function (name) {
+        var self = this,
+            args = arraySlice.call(arguments, 1),
+            constructors = self.constructor.constructors,
+            iterator = -1,
+            callbacks = self.callbacks;
+
+        if (callbacks) {
+            fire(self, callbacks[name], args);
+        }
+
+        /* istanbul ignore if: Wrong-usage */
+        if (!constructors) {
+            return;
+        }
+
+        while (constructors[++iterator]) {
+            callbacks = constructors[iterator].callbacks;
+
+            if (callbacks) {
+                fire(self, callbacks[name], args);
+            }
+        }
+    };
+
+    prototype.trigger = function (name) {
+        var self = this,
+            args = arraySlice.call(arguments, 1),
+            callbacks;
+
+        while (self) {
+            callbacks = self.callbacks;
+            if (callbacks) {
+                fire(self, callbacks[name], args);
+            }
+
+            callbacks = self.constructor.callbacks;
+            if (callbacks) {
+                fire(self, callbacks[name], args);
+            }
+
+            self = self.parent;
+        }
+    };
+
+    /**
+     * Inherit the contexts' (Super) prototype into a given Constructor. E.g.,
+     * Node is implemented by Parent, Parent is implemented by RootNode, &c.
+     *
+     * @param {function} Constructor
+     * @api public
+     */
+    Node.isImplementedBy = function (Constructor) {
+        var self = this,
+            constructors = self.constructors || [self],
+            constructorPrototype, key, newPrototype;
+
+        constructors = [Constructor].concat(constructors);
+
+        constructorPrototype = Constructor.prototype;
+
+        function AltConstructor () {}
+        AltConstructor.prototype = self.prototype;
+        newPrototype = new AltConstructor();
+
+        for (key in constructorPrototype) {
+            /* Note: Code climate, and probably other linters, will fail
+             * here. Thats okay, their wrong. */
+            newPrototype[key] = constructorPrototype[key];
+        }
+
+        if (constructorPrototype.toString !== {}.toString) {
+            newPrototype.toString = constructorPrototype.toString;
+        }
+
+        for (key in self) {
+            /* istanbul ignore else */
+            if (self.hasOwnProperty(key)) {
+                Constructor[key] = self[key];
+            }
+        }
+
+        newPrototype.constructor = Constructor;
+        Constructor.constructors = constructors;
+        Constructor.prototype = newPrototype;
+    };
+
+    /**
+     * Expose Parent. Constructs a new Parent node;
+     *
+     * @api public
+     * @constructor
+     */
+    function Parent() {
+        Node.apply(this, arguments);
+    }
+
+    prototype = Parent.prototype;
+
+    /**
+     * The first child of a parent, null otherwise.
+     *
+     * @api public
+     * @type {?Child}
+     * @readonly
+     */
+    prototype.head = null;
+
+    /**
+     * The last child of a parent (unless the last child is also the first
+     * child), null otherwise.
+     *
+     * @api public
+     * @type {?Child}
+     * @readonly
+     */
+    prototype.tail = null;
+
+    /**
+     * The number of children in a parent.
+     *
+     * @api public
+     * @type {number}
+     * @readonly
+     */
+    prototype.length = 0;
+
+    /**
+     * Insert a child at the beginning of the list (like Array#unshift).
+     *
+     * @param {Child} child - the child to insert as the (new) FIRST child
+     * @return {Child} - the given child.
+     * @api public
+     */
+    prototype.prepend = function (child) {
+        return insert(this, null, child);
+    };
+
+    /**
+     * Insert a child at the end of the list (like Array#push).
+     *
+     * @param {Child} child - the child to insert as the (new) LAST child
+     * @return {Child} - the given child.
+     * @api public
+     */
+    prototype.append = function (child) {
+        return insert(this, this.tail || this.head, child);
+    };
+
+    /**
+     * Return a child at given position in parent, and null otherwise. (like
+     * NodeList#item).
+     *
+     * @param {?number} [index=0] - the position to find a child at.
+     * @return {Child?} - the found child, or null.
+     * @api public
+     */
+    prototype.item = function (index) {
+        if (index === null || index === undefined) {
+            index = 0;
+        } else if (typeof index !== 'number' || index !== index) {
+            throw new TypeError('\'' + index + ' is not a valid argument ' +
+                'for \'Parent.prototype.item\'');
+        }
+
+        return this[index] || null;
+    };
+
+    /**
+     * Split the Parent into two, dividing the children from 0-position (NOT
+     * including the character at `position`), and position-length (including
+     * the character at `position`).
+     *
+     * @param {?number} [position=0] - the position to split at.
+     * @return {Parent} - the prepended parent.
+     * @api public
+     */
+    prototype.split = function (position) {
+        var self = this,
+            clone, cloneNode, iterator;
+
+        position = validateSplitPosition(position, self.length);
+
+        /* This throws if we're not attached, thus preventing appending. */
+        /*eslint-disable new-cap */
+        cloneNode = insert(self.parent, self.prev, new self.constructor());
+        /*eslint-enable new-cap */
+
+        clone = arraySlice.call(self);
+        iterator = -1;
+
+        while (++iterator < position && clone[iterator]) {
+            cloneNode.append(clone[iterator]);
+        }
+
+        return cloneNode;
+    };
+
+    /**
+     * Return the result of calling `toString` on each of `Parent`s children.
+     *
+     * NOTE The `toString` method is intentionally generic; It can be
+     * transferred to other kinds of (linked-list-like) objects for use as a
+     * method.
+     *
+     * @return {String}
+     * @api public
+     */
+    prototype.toString = function () {
+        var value, node;
+
+        value = '';
+        node = this.head;
+
+        while (node) {
+            value += node;
+            node = node.next;
+        }
+
+        return value;
+    };
+
+    /**
+     * Inherit from `Node.prototype`.
+     */
+    Node.isImplementedBy(Parent);
+
+    /**
+     * Expose Child. Constructs a new Child node;
+     *
+     * @api public
+     * @constructor
+     */
+    function Child() {
+        Node.apply(this, arguments);
+    }
+
+    prototype = Child.prototype;
+
+    /**
+     * The parent node, null otherwise (when the child is detached).
+     *
+     * @api public
+     * @type {?Parent}
+     * @readonly
+     */
+    prototype.parent = null;
+
+    /**
+     * The next node, null otherwise (when `child` is the parents last child
+     * or detached).
+     *
+     * @api public
+     * @type {?Child}
+     * @readonly
+     */
+    prototype.next = null;
+
+    /**
+     * The previous node, null otherwise (when `child` is the parents first
+     * child or detached).
+     *
+     * @api public
+     * @type {?Child}
+     * @readonly
+     */
+    prototype.prev = null;
+
+    /**
+     * Insert a given child before the operated on child in the parent.
+     *
+     * @param {Child} child - the child to insert before the operated on
+     *                        child.
+     * @return {Child} - the given child.
+     * @api public
+     */
+    prototype.before = function (child) {
+        return insert(this.parent, this.prev, child);
+    };
+
+    /**
+     * Insert a given child after the operated on child in the parent.
+     *
+     * @param {Child} child - the child to insert after the operated on child.
+     * @return {Child} - the given child.
+     * @api public
+     */
+    prototype.after = function (child) {
+        return insert(this.parent, this, child);
+    };
+
+    /**
+     * Remove the operated on child, and insert a given child at its previous
+     * position in the parent.
+     *
+     * @param {Child} child - the child to replace the operated on child with.
+     * @return {Child} - the given child.
+     * @api public
+     */
+    prototype.replace = function (child) {
+        var result = insert(this.parent, this, child);
+
+        remove(this);
+
+        return result;
+    };
+
+    /**
+     * Remove the operated on child.
+     *
+     * @return {Child} - the operated on child.
+     * @api public
+     */
+    prototype.remove = function () {
+        return remove(this);
+    };
+
+    /**
+     * Inherit from `Node.prototype`.
+     */
+    Node.isImplementedBy(Child);
+
+    /**
+     * Expose Element. Constructs a new Element node;
+     *
+     * @api public
+     * @constructor
+     */
+    function Element() {
+        Parent.apply(this, arguments);
+        Child.apply(this, arguments);
+    }
+
+    /**
+     * Inherit from `Parent.prototype` and `Child.prototype`.
+     */
+    Parent.isImplementedBy(Element);
+    Child.isImplementedBy(Element);
+
+    /* Add Parent as a constructor (which it is) */
+    Element.constructors.splice(2, 0, Parent);
+
+    /**
+     * Expose Text. Constructs a new Text node;
+     *
+     * @api public
+     * @constructor
+     */
+    function Text(value) {
+        Child.apply(this, arguments);
+
+        this.fromString(value);
+    }
+
+    prototype = Text.prototype;
+
+    /**
+     * The internal value.
+     *
+     * @api private
+     */
+    prototype.internalValue = '';
+
+    /**
+     * Return the internal value of a Text;
+     *
+     * @return {String}
+     * @api public
+     */
+    prototype.toString = function () {
+        return this.internalValue;
+    };
+
+    /**
+     * (Re)sets and returns the internal value of a Text with the stringified
+     * version of the given value.
+     *
+     * @param {?String} [value=''] - the value to set
+     * @return {String}
+     * @api public
+     */
+    prototype.fromString = function (value) {
+        var self = this,
+            previousValue = self.toString(),
+            parent;
+
+        if (value === null || value === undefined) {
+            value = '';
+        } else {
+            value = value.toString();
+        }
+
+        if (value !== previousValue) {
+            self.internalValue = value;
+
+            self.emit('changetext', value, previousValue);
+
+            parent = self.parent;
+            if (parent) {
+                parent.trigger(
+                    'changetextinside', self, value, previousValue
+                );
+            }
+        }
+
+        return value;
+    };
+
+    /**
+     * Split the Text into two, dividing the internal value from 0-position
+     * (NOT including the character at `position`), and position-length
+     * (including the character at `position`).
+     *
+     * @param {?number} [position=0] - the position to split at.
+     * @return {Child} - the prepended child.
+     * @api public
+     */
+    prototype.split = function (position) {
+        var self = this,
+            value = self.internalValue,
+            cloneNode;
+
+        position = validateSplitPosition(position, value.length);
+
+        /* This throws if we're not attached, thus preventing substringing. */
+        /*eslint-disable new-cap */
+        cloneNode = insert(self.parent, self.prev, new self.constructor());
+        /*eslint-enable new-cap */
+
+        self.fromString(value.slice(position));
+        cloneNode.fromString(value.slice(0, position));
+
+        return cloneNode;
+    };
+
+    /**
+     * Inherit from `Child.prototype`.
+     */
+    Child.isImplementedBy(Text);
+
+    /**
+     * Expose RootNode. Constructs a new RootNode (inheriting from Parent);
+     *
+     * @api public
+     * @constructor
+     */
+    function RootNode() {
+        Parent.apply(this, arguments);
+    }
+
+    /**
+     * The type of an instance of RootNode.
+     *
+     * @api public
+     * @readonly
+     * @static
+     */
+    RootNode.prototype.type = ROOT_NODE;
+
+    RootNode.prototype.allowedChildTypes = [
+        PARAGRAPH_NODE,
+        WHITE_SPACE_NODE,
+        SOURCE_NODE
+    ];
+
+    /**
+     * Inherit from `Parent.prototype`.
+     */
+    Parent.isImplementedBy(RootNode);
+
+    /**
+     * Expose ParagraphNode. Constructs a new ParagraphNode (inheriting from
+     * both Parent and Child);
+     *
+     * @api public
+     * @constructor
+     */
+    function ParagraphNode() {
+        Element.apply(this, arguments);
+    }
+
+    /**
+     * The type of an instance of ParagraphNode.
+     *
+     * @api public
+     * @readonly
+     * @static
+     */
+    ParagraphNode.prototype.type = PARAGRAPH_NODE;
+
+    ParagraphNode.prototype.allowedChildTypes = [
+        SENTENCE_NODE,
+        WHITE_SPACE_NODE,
+        SOURCE_NODE
+    ];
+
+    /**
+     * Inherit from `Parent.prototype` and `Child.prototype`.
+     */
+    Element.isImplementedBy(ParagraphNode);
+
+    /**
+     * Expose SentenceNode. Constructs a new SentenceNode (inheriting from
+     * both Parent and Child);
+     *
+     * @api public
+     * @constructor
+     */
+    function SentenceNode() {
+        Element.apply(this, arguments);
+    }
+
+    /**
+     * The type of an instance of SentenceNode.
+     *
+     * @api public
+     * @readonly
+     * @static
+     */
+    SentenceNode.prototype.type = SENTENCE_NODE;
+
+    SentenceNode.prototype.allowedChildTypes = [
+        WORD_NODE, PUNCTUATION_NODE, WHITE_SPACE_NODE, SOURCE_NODE
+    ];
+
+    /**
+     * Inherit from `Parent.prototype` and `Child.prototype`.
+     */
+    Element.isImplementedBy(SentenceNode);
+
+    /**
+     * Expose WordNode.
+     */
+    function WordNode() {
+        Element.apply(this, arguments);
+    }
+
+    /**
+     * The type of an instance of WordNode.
+     *
+     * @api public
+     * @readonly
+     * @static
+     */
+    WordNode.prototype.type = WORD_NODE;
+
+    WordNode.prototype.allowedChildTypes = [TEXT_NODE, PUNCTUATION_NODE];
+
+    /**
+     * Inherit from `Text.prototype`.
+     */
+    Element.isImplementedBy(WordNode);
+
+    /**
+     * Expose PunctuationNode.
+     */
+    function PunctuationNode() {
+        Element.apply(this, arguments);
+    }
+
+    /**
+     * The type of an instance of PunctuationNode.
+     *
+     * @api public
+     * @readonly
+     * @static
+     */
+    PunctuationNode.prototype.type = PUNCTUATION_NODE;
+
+    PunctuationNode.prototype.allowedChildTypes = [TEXT_NODE];
+
+    /**
+     * Inherit from `Text.prototype`.
+     */
+    Element.isImplementedBy(PunctuationNode);
+
+    /**
+     * Expose WhiteSpaceNode.
+     */
+    function WhiteSpaceNode() {
+        PunctuationNode.apply(this, arguments);
+    }
+
+    /**
+     * The type of an instance of WhiteSpaceNode.
+     *
+     * @api public
+     * @readonly
+     * @static
+     */
+    WhiteSpaceNode.prototype.type = WHITE_SPACE_NODE;
+
+    WhiteSpaceNode.prototype.allowedChildTypes = [TEXT_NODE];
+
+    /**
+     * Inherit from `Text.prototype`.
+     */
+    PunctuationNode.isImplementedBy(WhiteSpaceNode);
+
+    /**
+     * Expose SourceNode.
+     */
+    function SourceNode() {
+        Text.apply(this, arguments);
+    }
+
+    /**
+     * The type of an instance of SourceNode.
+     *
+     * @api public
+     * @readonly
+     * @static
+     */
+    SourceNode.prototype.type = SOURCE_NODE;
+
+    /**
+     * Inherit from `Text.prototype`.
+     */
+    Text.isImplementedBy(SourceNode);
+
+    /**
+     * Expose TextNode.
+     */
+    function TextNode() {
+        Text.apply(this, arguments);
+    }
+
+    /**
+     * The type of an instance of TextNode.
+     *
+     * @api public
+     * @readonly
+     * @static
+     */
+    TextNode.prototype.type = TEXT_NODE;
+
+    /**
+     * Inherit from `Text.prototype`.
+     */
+    Text.isImplementedBy(TextNode);
+
+    var nodePrototype = Node.prototype,
+        TextOM;
+
+    /**
+     * Define the `TextOM` object.
+     * Expose `TextOM` on every instance of Node.
+     *
+     * @api public
+     */
+    nodePrototype.TextOM = TextOM = {};
+
+    /**
+     * Export all node types to `TextOM` and `Node#`.
+     */
+    TextOM.ROOT_NODE = nodePrototype.ROOT_NODE = ROOT_NODE;
+    TextOM.PARAGRAPH_NODE = nodePrototype.PARAGRAPH_NODE = PARAGRAPH_NODE;
+    TextOM.SENTENCE_NODE = nodePrototype.SENTENCE_NODE = SENTENCE_NODE;
+    TextOM.WORD_NODE = nodePrototype.WORD_NODE = WORD_NODE;
+    TextOM.PUNCTUATION_NODE = nodePrototype.PUNCTUATION_NODE =
+        PUNCTUATION_NODE;
+    TextOM.WHITE_SPACE_NODE = nodePrototype.WHITE_SPACE_NODE =
+        WHITE_SPACE_NODE;
+    TextOM.SOURCE_NODE = nodePrototype.SOURCE_NODE = SOURCE_NODE;
+    TextOM.TEXT_NODE = nodePrototype.TEXT_NODE = TEXT_NODE;
+
+    /**
+     * Export all `Node`s to `TextOM`.
+     */
+    TextOM.Node = Node;
+    TextOM.Parent = Parent;
+    TextOM.Child = Child;
+    TextOM.Element = Element;
+    TextOM.Text = Text;
+    TextOM.RootNode = RootNode;
+    TextOM.ParagraphNode = ParagraphNode;
+    TextOM.SentenceNode = SentenceNode;
+    TextOM.WordNode = WordNode;
+    TextOM.PunctuationNode = PunctuationNode;
+    TextOM.WhiteSpaceNode = WhiteSpaceNode;
+    TextOM.SourceNode = SourceNode;
+    TextOM.TextNode = TextNode;
+
+    /**
+     * Expose `TextOM`. Used to instantiate a new `RootNode`.
+     */
+    return TextOM;
+}
+
+module.exports = TextOMConstructor;
+
+});
+
 require.register("wooorm~parse-latin@0.1.3", function (exports, module) {
 /**!
  * parse-latin
@@ -1734,1571 +3299,6 @@ module.exports = ParseLatin;
 
 });
 
-require.register("wooorm~textom@0.1.1", function (exports, module) {
-'use strict';
-
-/**
- * Utilities.
- */
-var arrayPrototype = Array.prototype,
-    arrayUnshift = arrayPrototype.unshift,
-    arrayPush = arrayPrototype.push,
-    arraySlice = arrayPrototype.slice,
-    arrayIndexOf = arrayPrototype.indexOf,
-    arraySplice = arrayPrototype.splice;
-
-/* istanbul ignore if: User forgot a polyfill much? */
-if (!arrayIndexOf) {
-    throw new Error('Missing Array#indexOf() method for TextOM');
-}
-
-var ROOT_NODE = 'RootNode',
-    PARAGRAPH_NODE = 'ParagraphNode',
-    SENTENCE_NODE = 'SentenceNode',
-    WORD_NODE = 'WordNode',
-    PUNCTUATION_NODE = 'PunctuationNode',
-    WHITE_SPACE_NODE = 'WhiteSpaceNode',
-    SOURCE_NODE = 'SourceNode',
-    TEXT_NODE = 'TextNode';
-
-function fire(context, callbacks, args) {
-    var iterator = -1;
-
-    if (!callbacks || !callbacks.length) {
-        return;
-    }
-
-    callbacks = callbacks.concat();
-
-    while (callbacks[++iterator]) {
-        callbacks[iterator].apply(context, args);
-    }
-
-    return;
-}
-
-function canInsertIntoParent(parent, child) {
-    var allowed = parent.allowedChildTypes;
-
-    if (!allowed || !allowed.length || !child.type) {
-        return true;
-    }
-
-    return allowed.indexOf(child.type) > -1;
-}
-
-function validateInsert(parent, item, child) {
-    if (!parent) {
-        throw new TypeError('Illegal invocation: \'' + parent +
-            ' is not a valid argument for \'insert\'');
-    }
-
-    if (!child) {
-        throw new TypeError('\'' + child +
-            ' is not a valid argument for \'insert\'');
-    }
-
-    if (parent === child || parent === item) {
-        throw new Error('HierarchyError: Cannot insert a node into itself');
-    }
-
-    if (!canInsertIntoParent(parent, child)) {
-        throw new Error('HierarchyError: The operation would ' +
-            'yield an incorrect node tree');
-    }
-
-    if (typeof child.remove !== 'function') {
-        throw new Error('The operated on node did not have a ' +
-            '`remove` method');
-    }
-
-    /* Insert after... */
-    if (item) {
-        /* istanbul ignore if: Wrong-usage */
-        if (item.parent !== parent) {
-            throw new Error('The operated on node (the "pointer") ' +
-                'was detached from the parent');
-        }
-
-        /* istanbul ignore if: Wrong-usage */
-        if (arrayIndexOf.call(parent, item) === -1) {
-            throw new Error('The operated on node (the "pointer") ' +
-                'was attached to its parent, but the parent has no ' +
-                'indice corresponding to the item');
-        }
-    }
-}
-
-/**
- * Inserts the given `child` after (when given), the `item`, and otherwise as
- * the first item of the given parents.
- *
- * @param {Object} parent
- * @param {Object} item
- * @param {Object} child
- * @api private
- */
-function insert(parent, item, child) {
-    var next;
-
-    validateInsert(parent, item, child);
-
-    /* Detach the child. */
-    child.remove();
-
-    /* Set the child's parent to items parent. */
-    child.parent = parent;
-
-    if (item) {
-        next = item.next;
-
-        /* If item has a next node... */
-        if (next) {
-            /* ...link the child's next node, to items next node. */
-            child.next = next;
-
-            /* ...link the next nodes previous node, to the child. */
-            next.prev = child;
-        }
-
-        /* Set the child's previous node to item. */
-        child.prev = item;
-
-        /* Set the next node of item to the child. */
-        item.next = child;
-
-        /* If the parent has no last node or if item is the parent last node,
-         * link the parents last node to the child. */
-        if (item === parent.tail || !parent.tail) {
-            parent.tail = child;
-            arrayPush.call(parent, child);
-        /* Else, insert the child into the parent after the items index. */
-        } else {
-            arraySplice.call(
-                parent, arrayIndexOf.call(parent, item) + 1, 0, child
-            );
-        }
-    /* If parent has a first node... */
-    } else if (parent.head) {
-        next = parent.head;
-
-        /* Set the child's next node to head. */
-        child.next = next;
-
-        /* Set the previous node of head to the child. */
-        next.prev = child;
-
-        /* Set the parents heads to the child. */
-        parent.head = child;
-
-        /* If the the parent has no last node, link the parents last node to
-         * head. */
-        if (!parent.tail) {
-            parent.tail = next;
-        }
-
-        arrayUnshift.call(parent, child);
-    /* Prepend. There is no `head` (or `tail`) node yet. */
-    } else {
-        /* Set parent's first node to the prependee and return the child. */
-        parent.head = child;
-        parent[0] = child;
-        parent.length = 1;
-    }
-
-    next = child.next;
-
-    child.emit('insert');
-
-    if (item) {
-        item.emit('changenext', child, next);
-        child.emit('changeprev', item, null);
-    }
-
-    if (next) {
-        next.emit('changeprev', child, item);
-        child.emit('changenext', next, null);
-    }
-
-    parent.trigger('insertinside', child);
-
-    return child;
-}
-
-/**
- * Detach a node from its (when applicable) parent, links its (when
- * existing) previous and next items to each other.
- *
- * @param {Object} node
- * @api private
- */
-function remove(node) {
-    /* istanbul ignore if: Wrong-usage */
-    if (!node) {
-        return false;
-    }
-
-    /* Cache self, the parent list, and the previous and next items. */
-    var parent = node.parent,
-        prev = node.prev,
-        next = node.next,
-        indice;
-
-    /* If the item is already detached, return node. */
-    if (!parent) {
-        return node;
-    }
-
-    /* If node is the last item in the parent, link the parents last
-     * item to the previous item. */
-    if (parent.tail === node) {
-        parent.tail = prev;
-    }
-
-    /* If node is the first item in the parent, link the parents first
-     * item to the next item. */
-    if (parent.head === node) {
-        parent.head = next;
-    }
-
-    /* If both the last and first items in the parent are the same,
-     * remove the link to the last item. */
-    if (parent.tail === parent.head) {
-        parent.tail = null;
-    }
-
-    /* If a previous item exists, link its next item to nodes next
-     * item. */
-    if (prev) {
-        prev.next = next;
-    }
-
-    /* If a next item exists, link its previous item to nodes previous
-     * item. */
-    if (next) {
-        next.prev = prev;
-    }
-
-    /* istanbul ignore else: Wrong-usage */
-    if ((indice = arrayIndexOf.call(parent, node)) !== -1) {
-        arraySplice.call(parent, indice, 1);
-    }
-
-    /* Remove links from node to both the next and previous items,
-     * and to the parent. */
-    node.prev = node.next = node.parent = null;
-
-    node.emit('remove', parent);
-
-    if (next) {
-        next.emit('changeprev', prev || null, node);
-        node.emit('changenext', null, next);
-    }
-
-    if (prev) {
-        node.emit('changeprev', null, prev);
-        prev.emit('changenext', next || null, node);
-    }
-
-    parent.trigger('removeinside', node, parent);
-
-    /* Return node. */
-    return node;
-}
-
-function validateSplitPosition(position, length) {
-    if (
-        position === null ||
-        position === undefined ||
-        position !== position ||
-        position === -Infinity
-    ) {
-            position = 0;
-    } else if (position === Infinity) {
-        position = length;
-    } else if (typeof position !== 'number') {
-        throw new TypeError('\'' + position + ' is not a valid ' +
-            'argument for \'#split\'');
-    } else if (position < 0) {
-        position = Math.abs((length + position) % length);
-    }
-
-    return position;
-}
-
-function TextOMConstructor() {
-    /**
-     * Expose `Node`. Initialises a new `Node` object.
-     *
-     * @api public
-     * @constructor
-     */
-    function Node() {
-        if (!this.data) {
-            /** @member {Object} */
-            this.data = {};
-        }
-    }
-
-    var prototype = Node.prototype;
-
-    prototype.on = Node.on = function (name, callback) {
-        var self = this,
-            callbacks;
-
-        if (typeof name !== 'string') {
-            if (name === null || name === undefined) {
-                return self;
-            }
-
-            throw new TypeError('Illegal invocation: \'' + name +
-                ' is not a valid argument for \'listen\'');
-        }
-
-        if (typeof callback !== 'function') {
-            if (callback === null || callback === undefined) {
-                return self;
-            }
-
-            throw new TypeError('Illegal invocation: \'' + callback +
-                ' is not a valid argument for \'listen\'');
-        }
-
-        callbacks = self.callbacks || (self.callbacks = {});
-        callbacks = callbacks[name] || (callbacks[name] = []);
-        callbacks.unshift(callback);
-
-        return self;
-    };
-
-    prototype.off = Node.off = function (name, callback) {
-        var self = this,
-            callbacks, indice;
-
-        if ((name === null || name === undefined) &&
-            (callback === null || callback === undefined)) {
-            self.callbacks = {};
-            return self;
-        }
-
-        if (typeof name !== 'string') {
-            if (name === null || name === undefined) {
-                return self;
-            }
-
-            throw new TypeError('Illegal invocation: \'' + name +
-                ' is not a valid argument for \'listen\'');
-        }
-
-        if (!(callbacks = self.callbacks)) {
-            return self;
-        }
-
-        if (!(callbacks = callbacks[name])) {
-            return self;
-        }
-
-        if (typeof callback !== 'function') {
-            if (callback === null || callback === undefined) {
-                callbacks.length = 0;
-                return self;
-            }
-
-            throw new TypeError('Illegal invocation: \'' + callback +
-                ' is not a valid argument for \'listen\'');
-        }
-
-        if ((indice = callbacks.indexOf(callback)) !== -1) {
-            callbacks.splice(indice, 1);
-        }
-
-        return self;
-    };
-
-    prototype.emit = function (name) {
-        var self = this,
-            args = arraySlice.call(arguments, 1),
-            constructors = self.constructor.constructors,
-            iterator = -1,
-            callbacks = self.callbacks;
-
-        if (callbacks) {
-            fire(self, callbacks[name], args);
-        }
-
-        /* istanbul ignore if: Wrong-usage */
-        if (!constructors) {
-            return;
-        }
-
-        while (constructors[++iterator]) {
-            callbacks = constructors[iterator].callbacks;
-
-            if (callbacks) {
-                fire(self, callbacks[name], args);
-            }
-        }
-    };
-
-    prototype.trigger = function (name) {
-        var self = this,
-            args = arraySlice.call(arguments, 1),
-            callbacks;
-
-        while (self) {
-            callbacks = self.callbacks;
-            if (callbacks) {
-                fire(self, callbacks[name], args);
-            }
-
-            callbacks = self.constructor.callbacks;
-            if (callbacks) {
-                fire(self, callbacks[name], args);
-            }
-
-            self = self.parent;
-        }
-    };
-
-    /**
-     * Inherit the contexts' (Super) prototype into a given Constructor. E.g.,
-     * Node is implemented by Parent, Parent is implemented by RootNode, &c.
-     *
-     * @param {function} Constructor
-     * @api public
-     */
-    Node.isImplementedBy = function (Constructor) {
-        var self = this,
-            constructors = self.constructors || [self],
-            constructorPrototype, key, newPrototype;
-
-        constructors = [Constructor].concat(constructors);
-
-        constructorPrototype = Constructor.prototype;
-
-        function AltConstructor () {}
-        AltConstructor.prototype = self.prototype;
-        newPrototype = new AltConstructor();
-
-        for (key in constructorPrototype) {
-            /* Note: Code climate, and probably other linters, will fail
-             * here. Thats okay, their wrong. */
-            newPrototype[key] = constructorPrototype[key];
-        }
-
-        if (constructorPrototype.toString !== {}.toString) {
-            newPrototype.toString = constructorPrototype.toString;
-        }
-
-        for (key in self) {
-            /* istanbul ignore else */
-            if (self.hasOwnProperty(key)) {
-                Constructor[key] = self[key];
-            }
-        }
-
-        newPrototype.constructor = Constructor;
-        Constructor.constructors = constructors;
-        Constructor.prototype = newPrototype;
-    };
-
-    /**
-     * Expose Parent. Constructs a new Parent node;
-     *
-     * @api public
-     * @constructor
-     */
-    function Parent() {
-        Node.apply(this, arguments);
-    }
-
-    prototype = Parent.prototype;
-
-    /**
-     * The first child of a parent, null otherwise.
-     *
-     * @api public
-     * @type {?Child}
-     * @readonly
-     */
-    prototype.head = null;
-
-    /**
-     * The last child of a parent (unless the last child is also the first
-     * child), null otherwise.
-     *
-     * @api public
-     * @type {?Child}
-     * @readonly
-     */
-    prototype.tail = null;
-
-    /**
-     * The number of children in a parent.
-     *
-     * @api public
-     * @type {number}
-     * @readonly
-     */
-    prototype.length = 0;
-
-    /**
-     * Insert a child at the beginning of the list (like Array#unshift).
-     *
-     * @param {Child} child - the child to insert as the (new) FIRST child
-     * @return {Child} - the given child.
-     * @api public
-     */
-    prototype.prepend = function (child) {
-        return insert(this, null, child);
-    };
-
-    /**
-     * Insert a child at the end of the list (like Array#push).
-     *
-     * @param {Child} child - the child to insert as the (new) LAST child
-     * @return {Child} - the given child.
-     * @api public
-     */
-    prototype.append = function (child) {
-        return insert(this, this.tail || this.head, child);
-    };
-
-    /**
-     * Return a child at given position in parent, and null otherwise. (like
-     * NodeList#item).
-     *
-     * @param {?number} [index=0] - the position to find a child at.
-     * @return {Child?} - the found child, or null.
-     * @api public
-     */
-    prototype.item = function (index) {
-        if (index === null || index === undefined) {
-            index = 0;
-        } else if (typeof index !== 'number' || index !== index) {
-            throw new TypeError('\'' + index + ' is not a valid argument ' +
-                'for \'Parent.prototype.item\'');
-        }
-
-        return this[index] || null;
-    };
-
-    /**
-     * Split the Parent into two, dividing the children from 0-position (NOT
-     * including the character at `position`), and position-length (including
-     * the character at `position`).
-     *
-     * @param {?number} [position=0] - the position to split at.
-     * @return {Parent} - the prepended parent.
-     * @api public
-     */
-    prototype.split = function (position) {
-        var self = this,
-            clone, cloneNode, iterator;
-
-        position = validateSplitPosition(position, self.length);
-
-        /* This throws if we're not attached, thus preventing appending. */
-        /*eslint-disable new-cap */
-        cloneNode = insert(self.parent, self.prev, new self.constructor());
-        /*eslint-enable new-cap */
-
-        clone = arraySlice.call(self);
-        iterator = -1;
-
-        while (++iterator < position && clone[iterator]) {
-            cloneNode.append(clone[iterator]);
-        }
-
-        return cloneNode;
-    };
-
-    /**
-     * Return the result of calling `toString` on each of `Parent`s children.
-     *
-     * NOTE The `toString` method is intentionally generic; It can be
-     * transferred to other kinds of (linked-list-like) objects for use as a
-     * method.
-     *
-     * @return {String}
-     * @api public
-     */
-    prototype.toString = function () {
-        var value, node;
-
-        value = '';
-        node = this.head;
-
-        while (node) {
-            value += node;
-            node = node.next;
-        }
-
-        return value;
-    };
-
-    /**
-     * Inherit from `Node.prototype`.
-     */
-    Node.isImplementedBy(Parent);
-
-    /**
-     * Expose Child. Constructs a new Child node;
-     *
-     * @api public
-     * @constructor
-     */
-    function Child() {
-        Node.apply(this, arguments);
-    }
-
-    prototype = Child.prototype;
-
-    /**
-     * The parent node, null otherwise (when the child is detached).
-     *
-     * @api public
-     * @type {?Parent}
-     * @readonly
-     */
-    prototype.parent = null;
-
-    /**
-     * The next node, null otherwise (when `child` is the parents last child
-     * or detached).
-     *
-     * @api public
-     * @type {?Child}
-     * @readonly
-     */
-    prototype.next = null;
-
-    /**
-     * The previous node, null otherwise (when `child` is the parents first
-     * child or detached).
-     *
-     * @api public
-     * @type {?Child}
-     * @readonly
-     */
-    prototype.prev = null;
-
-    /**
-     * Insert a given child before the operated on child in the parent.
-     *
-     * @param {Child} child - the child to insert before the operated on
-     *                        child.
-     * @return {Child} - the given child.
-     * @api public
-     */
-    prototype.before = function (child) {
-        return insert(this.parent, this.prev, child);
-    };
-
-    /**
-     * Insert a given child after the operated on child in the parent.
-     *
-     * @param {Child} child - the child to insert after the operated on child.
-     * @return {Child} - the given child.
-     * @api public
-     */
-    prototype.after = function (child) {
-        return insert(this.parent, this, child);
-    };
-
-    /**
-     * Remove the operated on child, and insert a given child at its previous
-     * position in the parent.
-     *
-     * @param {Child} child - the child to replace the operated on child with.
-     * @return {Child} - the given child.
-     * @api public
-     */
-    prototype.replace = function (child) {
-        var result = insert(this.parent, this, child);
-
-        remove(this);
-
-        return result;
-    };
-
-    /**
-     * Remove the operated on child.
-     *
-     * @return {Child} - the operated on child.
-     * @api public
-     */
-    prototype.remove = function () {
-        return remove(this);
-    };
-
-    /**
-     * Inherit from `Node.prototype`.
-     */
-    Node.isImplementedBy(Child);
-
-    /**
-     * Expose Element. Constructs a new Element node;
-     *
-     * @api public
-     * @constructor
-     */
-    function Element() {
-        Parent.apply(this, arguments);
-        Child.apply(this, arguments);
-    }
-
-    /**
-     * Inherit from `Parent.prototype` and `Child.prototype`.
-     */
-    Parent.isImplementedBy(Element);
-    Child.isImplementedBy(Element);
-
-    /* Add Parent as a constructor (which it is) */
-    Element.constructors.splice(2, 0, Parent);
-
-    /**
-     * Expose Text. Constructs a new Text node;
-     *
-     * @api public
-     * @constructor
-     */
-    function Text(value) {
-        Child.apply(this, arguments);
-
-        this.fromString(value);
-    }
-
-    prototype = Text.prototype;
-
-    /**
-     * The internal value.
-     *
-     * @api private
-     */
-    prototype.internalValue = '';
-
-    /**
-     * Return the internal value of a Text;
-     *
-     * @return {String}
-     * @api public
-     */
-    prototype.toString = function () {
-        return this.internalValue;
-    };
-
-    /**
-     * (Re)sets and returns the internal value of a Text with the stringified
-     * version of the given value.
-     *
-     * @param {?String} [value=''] - the value to set
-     * @return {String}
-     * @api public
-     */
-    prototype.fromString = function (value) {
-        var self = this,
-            previousValue = self.toString(),
-            parent;
-
-        if (value === null || value === undefined) {
-            value = '';
-        } else {
-            value = value.toString();
-        }
-
-        if (value !== previousValue) {
-            self.internalValue = value;
-
-            self.emit('changetext', value, previousValue);
-
-            parent = self.parent;
-            if (parent) {
-                parent.trigger(
-                    'changetextinside', self, value, previousValue
-                );
-            }
-        }
-
-        return value;
-    };
-
-    /**
-     * Split the Text into two, dividing the internal value from 0-position
-     * (NOT including the character at `position`), and position-length
-     * (including the character at `position`).
-     *
-     * @param {?number} [position=0] - the position to split at.
-     * @return {Child} - the prepended child.
-     * @api public
-     */
-    prototype.split = function (position) {
-        var self = this,
-            value = self.internalValue,
-            cloneNode;
-
-        position = validateSplitPosition(position, value.length);
-
-        /* This throws if we're not attached, thus preventing substringing. */
-        /*eslint-disable new-cap */
-        cloneNode = insert(self.parent, self.prev, new self.constructor());
-        /*eslint-enable new-cap */
-
-        self.fromString(value.slice(position));
-        cloneNode.fromString(value.slice(0, position));
-
-        return cloneNode;
-    };
-
-    /**
-     * Inherit from `Child.prototype`.
-     */
-    Child.isImplementedBy(Text);
-
-    /**
-     * Expose RootNode. Constructs a new RootNode (inheriting from Parent);
-     *
-     * @api public
-     * @constructor
-     */
-    function RootNode() {
-        Parent.apply(this, arguments);
-    }
-
-    /**
-     * The type of an instance of RootNode.
-     *
-     * @api public
-     * @readonly
-     * @static
-     */
-    RootNode.prototype.type = ROOT_NODE;
-
-    RootNode.prototype.allowedChildTypes = [
-        PARAGRAPH_NODE,
-        WHITE_SPACE_NODE,
-        SOURCE_NODE
-    ];
-
-    /**
-     * Inherit from `Parent.prototype`.
-     */
-    Parent.isImplementedBy(RootNode);
-
-    /**
-     * Expose ParagraphNode. Constructs a new ParagraphNode (inheriting from
-     * both Parent and Child);
-     *
-     * @api public
-     * @constructor
-     */
-    function ParagraphNode() {
-        Element.apply(this, arguments);
-    }
-
-    /**
-     * The type of an instance of ParagraphNode.
-     *
-     * @api public
-     * @readonly
-     * @static
-     */
-    ParagraphNode.prototype.type = PARAGRAPH_NODE;
-
-    ParagraphNode.prototype.allowedChildTypes = [
-        SENTENCE_NODE,
-        WHITE_SPACE_NODE,
-        SOURCE_NODE
-    ];
-
-    /**
-     * Inherit from `Parent.prototype` and `Child.prototype`.
-     */
-    Element.isImplementedBy(ParagraphNode);
-
-    /**
-     * Expose SentenceNode. Constructs a new SentenceNode (inheriting from
-     * both Parent and Child);
-     *
-     * @api public
-     * @constructor
-     */
-    function SentenceNode() {
-        Element.apply(this, arguments);
-    }
-
-    /**
-     * The type of an instance of SentenceNode.
-     *
-     * @api public
-     * @readonly
-     * @static
-     */
-    SentenceNode.prototype.type = SENTENCE_NODE;
-
-    SentenceNode.prototype.allowedChildTypes = [
-        WORD_NODE, PUNCTUATION_NODE, WHITE_SPACE_NODE, SOURCE_NODE
-    ];
-
-    /**
-     * Inherit from `Parent.prototype` and `Child.prototype`.
-     */
-    Element.isImplementedBy(SentenceNode);
-
-    /**
-     * Expose WordNode.
-     */
-    function WordNode() {
-        Element.apply(this, arguments);
-    }
-
-    /**
-     * The type of an instance of WordNode.
-     *
-     * @api public
-     * @readonly
-     * @static
-     */
-    WordNode.prototype.type = WORD_NODE;
-
-    WordNode.prototype.allowedChildTypes = [TEXT_NODE, PUNCTUATION_NODE];
-
-    /**
-     * Inherit from `Text.prototype`.
-     */
-    Element.isImplementedBy(WordNode);
-
-    /**
-     * Expose PunctuationNode.
-     */
-    function PunctuationNode() {
-        Element.apply(this, arguments);
-    }
-
-    /**
-     * The type of an instance of PunctuationNode.
-     *
-     * @api public
-     * @readonly
-     * @static
-     */
-    PunctuationNode.prototype.type = PUNCTUATION_NODE;
-
-    PunctuationNode.prototype.allowedChildTypes = [TEXT_NODE];
-
-    /**
-     * Inherit from `Text.prototype`.
-     */
-    Element.isImplementedBy(PunctuationNode);
-
-    /**
-     * Expose WhiteSpaceNode.
-     */
-    function WhiteSpaceNode() {
-        PunctuationNode.apply(this, arguments);
-    }
-
-    /**
-     * The type of an instance of WhiteSpaceNode.
-     *
-     * @api public
-     * @readonly
-     * @static
-     */
-    WhiteSpaceNode.prototype.type = WHITE_SPACE_NODE;
-
-    WhiteSpaceNode.prototype.allowedChildTypes = [TEXT_NODE];
-
-    /**
-     * Inherit from `Text.prototype`.
-     */
-    PunctuationNode.isImplementedBy(WhiteSpaceNode);
-
-    /**
-     * Expose SourceNode.
-     */
-    function SourceNode() {
-        Text.apply(this, arguments);
-    }
-
-    /**
-     * The type of an instance of SourceNode.
-     *
-     * @api public
-     * @readonly
-     * @static
-     */
-    SourceNode.prototype.type = SOURCE_NODE;
-
-    /**
-     * Inherit from `Text.prototype`.
-     */
-    Text.isImplementedBy(SourceNode);
-
-    /**
-     * Expose TextNode.
-     */
-    function TextNode() {
-        Text.apply(this, arguments);
-    }
-
-    /**
-     * The type of an instance of TextNode.
-     *
-     * @api public
-     * @readonly
-     * @static
-     */
-    TextNode.prototype.type = TEXT_NODE;
-
-    /**
-     * Inherit from `Text.prototype`.
-     */
-    Text.isImplementedBy(TextNode);
-
-    var nodePrototype = Node.prototype,
-        TextOM;
-
-    /**
-     * Define the `TextOM` object.
-     * Expose `TextOM` on every instance of Node.
-     *
-     * @api public
-     */
-    nodePrototype.TextOM = TextOM = {};
-
-    /**
-     * Export all node types to `TextOM` and `Node#`.
-     */
-    TextOM.ROOT_NODE = nodePrototype.ROOT_NODE = ROOT_NODE;
-    TextOM.PARAGRAPH_NODE = nodePrototype.PARAGRAPH_NODE = PARAGRAPH_NODE;
-    TextOM.SENTENCE_NODE = nodePrototype.SENTENCE_NODE = SENTENCE_NODE;
-    TextOM.WORD_NODE = nodePrototype.WORD_NODE = WORD_NODE;
-    TextOM.PUNCTUATION_NODE = nodePrototype.PUNCTUATION_NODE =
-        PUNCTUATION_NODE;
-    TextOM.WHITE_SPACE_NODE = nodePrototype.WHITE_SPACE_NODE =
-        WHITE_SPACE_NODE;
-    TextOM.SOURCE_NODE = nodePrototype.SOURCE_NODE = SOURCE_NODE;
-    TextOM.TEXT_NODE = nodePrototype.TEXT_NODE = TEXT_NODE;
-
-    /**
-     * Export all `Node`s to `TextOM`.
-     */
-    TextOM.Node = Node;
-    TextOM.Parent = Parent;
-    TextOM.Child = Child;
-    TextOM.Element = Element;
-    TextOM.Text = Text;
-    TextOM.RootNode = RootNode;
-    TextOM.ParagraphNode = ParagraphNode;
-    TextOM.SentenceNode = SentenceNode;
-    TextOM.WordNode = WordNode;
-    TextOM.PunctuationNode = PunctuationNode;
-    TextOM.WhiteSpaceNode = WhiteSpaceNode;
-    TextOM.SourceNode = SourceNode;
-    TextOM.TextNode = TextNode;
-
-    /**
-     * Expose `TextOM`. Used to instantiate a new `RootNode`.
-     */
-    return TextOM;
-}
-
-module.exports = TextOMConstructor;
-
-});
-
-require.register("visionmedia~co@3.1.0", function (exports, module) {
-
-/**
- * slice() reference.
- */
-
-var slice = Array.prototype.slice;
-
-/**
- * Expose `co`.
- */
-
-module.exports = co;
-
-/**
- * Wrap the given generator `fn` and
- * return a thunk.
- *
- * @param {Function} fn
- * @return {Function}
- * @api public
- */
-
-function co(fn) {
-  var isGenFun = isGeneratorFunction(fn);
-
-  return function (done) {
-    var ctx = this;
-
-    // in toThunk() below we invoke co()
-    // with a generator, so optimize for
-    // this case
-    var gen = fn;
-
-    // we only need to parse the arguments
-    // if gen is a generator function.
-    if (isGenFun) {
-      var args = slice.call(arguments), len = args.length;
-      var hasCallback = len && 'function' == typeof args[len - 1];
-      done = hasCallback ? args.pop() : error;
-      gen = fn.apply(this, args);
-    } else {
-      done = done || error;
-    }
-
-    next();
-
-    // #92
-    // wrap the callback in a setImmediate
-    // so that any of its errors aren't caught by `co`
-    function exit(err, res) {
-      setImmediate(function(){
-        done.call(ctx, err, res);
-      });
-    }
-
-    function next(err, res) {
-      var ret;
-
-      // multiple args
-      if (arguments.length > 2) res = slice.call(arguments, 1);
-
-      // error
-      if (err) {
-        try {
-          ret = gen.throw(err);
-        } catch (e) {
-          return exit(e);
-        }
-      }
-
-      // ok
-      if (!err) {
-        try {
-          ret = gen.next(res);
-        } catch (e) {
-          return exit(e);
-        }
-      }
-
-      // done
-      if (ret.done) return exit(null, ret.value);
-
-      // normalize
-      ret.value = toThunk(ret.value, ctx);
-
-      // run
-      if ('function' == typeof ret.value) {
-        var called = false;
-        try {
-          ret.value.call(ctx, function(){
-            if (called) return;
-            called = true;
-            next.apply(ctx, arguments);
-          });
-        } catch (e) {
-          setImmediate(function(){
-            if (called) return;
-            called = true;
-            next(e);
-          });
-        }
-        return;
-      }
-
-      // invalid
-      next(new TypeError('You may only yield a function, promise, generator, array, or object, '
-        + 'but the following was passed: "' + String(ret.value) + '"'));
-    }
-  }
-}
-
-/**
- * Convert `obj` into a normalized thunk.
- *
- * @param {Mixed} obj
- * @param {Mixed} ctx
- * @return {Function}
- * @api private
- */
-
-function toThunk(obj, ctx) {
-
-  if (isGeneratorFunction(obj)) {
-    return co(obj.call(ctx));
-  }
-
-  if (isGenerator(obj)) {
-    return co(obj);
-  }
-
-  if (isPromise(obj)) {
-    return promiseToThunk(obj);
-  }
-
-  if ('function' == typeof obj) {
-    return obj;
-  }
-
-  if (isObject(obj) || Array.isArray(obj)) {
-    return objectToThunk.call(ctx, obj);
-  }
-
-  return obj;
-}
-
-/**
- * Convert an object of yieldables to a thunk.
- *
- * @param {Object} obj
- * @return {Function}
- * @api private
- */
-
-function objectToThunk(obj){
-  var ctx = this;
-  var isArray = Array.isArray(obj);
-
-  return function(done){
-    var keys = Object.keys(obj);
-    var pending = keys.length;
-    var results = isArray
-      ? new Array(pending) // predefine the array length
-      : new obj.constructor();
-    var finished;
-
-    if (!pending) {
-      setImmediate(function(){
-        done(null, results)
-      });
-      return;
-    }
-
-    // prepopulate object keys to preserve key ordering
-    if (!isArray) {
-      for (var i = 0; i < pending; i++) {
-        results[keys[i]] = undefined;
-      }
-    }
-
-    for (var i = 0; i < keys.length; i++) {
-      run(obj[keys[i]], keys[i]);
-    }
-
-    function run(fn, key) {
-      if (finished) return;
-      try {
-        fn = toThunk(fn, ctx);
-
-        if ('function' != typeof fn) {
-          results[key] = fn;
-          return --pending || done(null, results);
-        }
-
-        fn.call(ctx, function(err, res){
-          if (finished) return;
-
-          if (err) {
-            finished = true;
-            return done(err);
-          }
-
-          results[key] = res;
-          --pending || done(null, results);
-        });
-      } catch (err) {
-        finished = true;
-        done(err);
-      }
-    }
-  }
-}
-
-/**
- * Convert `promise` to a thunk.
- *
- * @param {Object} promise
- * @return {Function}
- * @api private
- */
-
-function promiseToThunk(promise) {
-  return function(fn){
-    promise.then(function(res) {
-      fn(null, res);
-    }, fn);
-  }
-}
-
-/**
- * Check if `obj` is a promise.
- *
- * @param {Object} obj
- * @return {Boolean}
- * @api private
- */
-
-function isPromise(obj) {
-  return obj && 'function' == typeof obj.then;
-}
-
-/**
- * Check if `obj` is a generator.
- *
- * @param {Mixed} obj
- * @return {Boolean}
- * @api private
- */
-
-function isGenerator(obj) {
-  return obj && 'function' == typeof obj.next && 'function' == typeof obj.throw;
-}
-
-/**
- * Check if `obj` is a generator function.
- *
- * @param {Mixed} obj
- * @return {Boolean}
- * @api private
- */
-
-function isGeneratorFunction(obj) {
-  return obj && obj.constructor && 'GeneratorFunction' == obj.constructor.name;
-}
-
-/**
- * Check for plain object.
- *
- * @param {Mixed} val
- * @return {Boolean}
- * @api private
- */
-
-function isObject(val) {
-  return val && Object == val.constructor;
-}
-
-/**
- * Throw `err` in a new stack.
- *
- * This is used when co() is invoked
- * without supplying a callback, which
- * should only be for demonstrational
- * purposes.
- *
- * @param {Error} err
- * @api private
- */
-
-function error(err) {
-  if (!err) return;
-  setImmediate(function(){
-    throw err;
-  });
-}
-
-});
-
-require.register("matthewmueller~wrap-fn@0.1.1", function (exports, module) {
-/**
- * Module Dependencies
- */
-
-var slice = [].slice;
-var co = require("visionmedia~co@3.1.0");
-var noop = function(){};
-
-/**
- * Export `wrap-fn`
- */
-
-module.exports = wrap;
-
-/**
- * Wrap a function to support
- * sync, async, and gen functions.
- *
- * @param {Function} fn
- * @param {Function} done
- * @return {Function}
- * @api public
- */
-
-function wrap(fn, done) {
-  done = done || noop;
-
-  return function() {
-    var args = slice.call(arguments);
-    var ctx = this;
-
-    // done
-    if (!fn) {
-      return done.apply(ctx, [null].concat(args));
-    }
-
-    // async
-    if (fn.length > args.length) {
-      return fn.apply(ctx, args.concat(done));
-    }
-
-    // generator
-    if (generator(fn)) {
-      return co(fn).apply(ctx, args.concat(done));
-    }
-
-    // sync
-    return sync(fn, done).apply(ctx, args);
-  }
-}
-
-/**
- * Wrap a synchronous function execution.
- *
- * @param {Function} fn
- * @param {Function} done
- * @return {Function}
- * @api private
- */
-
-function sync(fn, done) {
-  return function () {
-    var ret;
-
-    try {
-      ret = fn.apply(this, arguments);
-    } catch (err) {
-      return done(err);
-    }
-
-    if (promise(ret)) {
-      ret.then(function (value) { done(null, value); }, done);
-    } else {
-      ret instanceof Error ? done(ret) : done(null, ret);
-    }
-  }
-}
-
-/**
- * Is `value` a generator?
- *
- * @param {Mixed} value
- * @return {Boolean}
- * @api private
- */
-
-function generator(value) {
-  return value
-    && value.constructor
-    && 'GeneratorFunction' == value.constructor.name;
-}
-
-
-/**
- * Is `value` a promise?
- *
- * @param {Mixed} value
- * @return {Boolean}
- * @api private
- */
-
-function promise(value) {
-  return value && 'function' == typeof value.then;
-}
-
-});
-
-require.register("segmentio~ware@1.2.0", function (exports, module) {
-/**
- * Module Dependencies
- */
-
-var slice = [].slice;
-var wrap = require("matthewmueller~wrap-fn@0.1.1");
-
-/**
- * Expose `Ware`.
- */
-
-module.exports = Ware;
-
-/**
- * Initialize a new `Ware` manager, with optional `fns`.
- *
- * @param {Function or Array or Ware} fn (optional)
- */
-
-function Ware (fn) {
-  if (!(this instanceof Ware)) return new Ware(fn);
-  this.fns = [];
-  if (fn) this.use(fn);
-}
-
-/**
- * Use a middleware `fn`.
- *
- * @param {Function or Array or Ware} fn
- * @return {Ware}
- */
-
-Ware.prototype.use = function (fn) {
-  if (fn instanceof Ware) {
-    return this.use(fn.fns);
-  }
-
-  if (fn instanceof Array) {
-    for (var i = 0, f; f = fn[i++];) this.use(f);
-    return this;
-  }
-
-  this.fns.push(fn);
-  return this;
-};
-
-/**
- * Run through the middleware with the given `args` and optional `callback`.
- *
- * @param {Mixed} args...
- * @param {Function} callback (optional)
- * @return {Ware}
- */
-
-Ware.prototype.run = function () {
-  var fns = this.fns;
-  var ctx = this;
-  var i = 0;
-  var last = arguments[arguments.length - 1];
-  var done = 'function' == typeof last && last;
-  var args = done
-    ? slice.call(arguments, 0, arguments.length - 1)
-    : slice.call(arguments);
-
-  // next step
-  function next (err) {
-    if (err) return done(err);
-    var fn = fns[i++];
-    var arr = slice.call(args);
-
-    if (!fn) {
-      return done && done.apply(null, [null].concat(args));
-    }
-
-    wrap(fn, next).apply(ctx, arr);
-  }
-
-  next();
-
-  return this;
-};
-
-});
-
 require.register("wooorm~retext@0.2.0-rc.3", function (exports, module) {
 'use strict';
 
@@ -3530,6 +3530,116 @@ Retext.prototype.run = function (node, done) {
  */
 
 module.exports = Retext;
+
+});
+
+require.register("wooorm~retext-visit@0.1.1", function (exports, module) {
+'use strict';
+
+/**
+ * Define `plugin`.
+ */
+
+function plugin() {}
+
+/**
+ * Invoke `callback` for every descendant of the
+ * operated on context.
+ *
+ * @param {function(Node): boolean?} callback - Visitor.
+ *   Stops visiting when the return value is `false`.
+ * @this {Node} Context to search in.
+ */
+
+function visit(callback) {
+    var node,
+        next;
+
+    node = this.head;
+
+    while (node) {
+        /**
+         * Allow for removal of the node by `callback`.
+         */
+
+        next = node.next;
+
+        if (callback(node) === false) {
+            return;
+        }
+
+        /**
+         * If possible, invoke the node's own `visit`
+         *  method, otherwise call retext-visit's
+         * `visit` method.
+         */
+
+        (node.visit || visit).call(node, callback);
+
+        node = next;
+    }
+}
+
+/**
+ * Invoke `callback` for every descendant with a given
+ * `type` in the operated on context.
+ *
+ * @param {string} type - Type of a node.
+ * @param {function(Node): boolean?} callback - Visitor.
+ *   Stops visiting when the return value is `false`.
+ * @this {Node} Context to search in.
+ */
+
+function visitType(type, callback) {
+    /**
+     * A wrapper for `callback` to check it the node's
+     * type property matches `type`.
+     *
+     * @param {node} type - Descendant.
+     * @return {*} Passes `callback`s return value
+     *   through.
+     */
+
+    function wrapper(node) {
+        if (node.type === type) {
+            return callback(node);
+        }
+    }
+
+    this.visit(wrapper);
+}
+
+function attach(retext) {
+    var TextOM,
+        parentPrototype,
+        elementPrototype;
+
+    TextOM = retext.TextOM;
+    parentPrototype = TextOM.Parent.prototype;
+    elementPrototype = TextOM.Element.prototype;
+
+    /**
+     * Expose `visit` and `visitType` on Parents.
+     *
+     * Due to multiple inheritance of Elements (Parent
+     * and Child), these methods are explicitly added.
+     */
+
+    elementPrototype.visit = parentPrototype.visit = visit;
+    elementPrototype.visitType = parentPrototype.visitType = visitType;
+}
+
+/**
+ * Expose `attach`.
+ */
+
+plugin.attach = attach;
+
+/**
+ * Expose `plugin`.
+ */
+
+exports = module.exports = plugin;
 
 });
 
@@ -4401,117 +4511,7 @@ require.define("wooorm~franc@0.1.1/data.json", {
     "zu": "oku|la |nga| ng|a n| ku|a k|thi| uk|ezi|e n|uku|le |lo |hi |wa | no|a u|ela|we |a i|ni |ele|zin|uth|ama|elo|pha|ing|aba|ath|and|enz|eth|esi|ma |lel| um| ka|the|ung|nge|ngo|tho|nye|kwe|eni|izi|ye | kw|ndl|ho |a e|na |zi |het|kan|e u|e i|und|ise|isi|nda|kha|ba |i k|nom|fun| ez| iz|ke |ben|o e|isa|zwe|kel|ka |aka|nzi|o n|e k|oma|kwa| ne|any|ang|hla|i u|mth|kub|o k|ana|ane|ikh|ebe|kut|ha | is|azi|ulu|seb|ala|onk|ban|i e|azw|wen| ab|han|a a|i n|imi|lan|hat|lwa| na|ini|akh|li |ngu|nke|nok|ume|eke|elw|yo |aph|kus| es| ok|iph| im|mel|i i| lo| in| am|kho|za |gok|sek|lun|kun|lwe|sha|sik|kuf|hak|a y|thu|sa |o u|khu|ayo|hul|e a|ali|eng|lu |ne | ko|eli|uba|dle|e e|ith| yo|a l|nel|mis| si|kul|a o|sis|lok|gen|o z|i a|emi|uma|eka|alo|man|isw|tha|o i|lon|so |uph|uhl|ntu|zim|mal|ind|wez| ba|o o| yi| we|ula|phe|o y|ile|o l|wo |wel|ga |tu |hle|okw|fan| le|kaz|ase|ani|nde|bo |ngi|ule| em|men|iny|amb|mbi|gan|ifu|o s|ant|hel|ika|ona|i l|fut| fu|ze |u a|nhl|nin| zo|end|sig|u k|gab|ufa|ish|ush|kuz|no |gam|kuh| ye|nya|nez|zis|dlu|kat|dla|tsh| se|ike|kuq|gu |osi|swa|lul| zi|ima|e l|kup|mo |nza|asi|ko |kum|lek|she|umt|uny|yok|wan|wam|ame|ong|lis|mkh|ahl|ale|use|o a|alu|gap|si |hlo|nje|omt|o w|okh|he |kom|i s"
 });
 
-require.register("wooorm~retext-visit@0.1.1", function (exports, module) {
-'use strict';
-
-/**
- * Define `plugin`.
- */
-
-function plugin() {}
-
-/**
- * Invoke `callback` for every descendant of the
- * operated on context.
- *
- * @param {function(Node): boolean?} callback - Visitor.
- *   Stops visiting when the return value is `false`.
- * @this {Node} Context to search in.
- */
-
-function visit(callback) {
-    var node,
-        next;
-
-    node = this.head;
-
-    while (node) {
-        /**
-         * Allow for removal of the node by `callback`.
-         */
-
-        next = node.next;
-
-        if (callback(node) === false) {
-            return;
-        }
-
-        /**
-         * If possible, invoke the node's own `visit`
-         *  method, otherwise call retext-visit's
-         * `visit` method.
-         */
-
-        (node.visit || visit).call(node, callback);
-
-        node = next;
-    }
-}
-
-/**
- * Invoke `callback` for every descendant with a given
- * `type` in the operated on context.
- *
- * @param {string} type - Type of a node.
- * @param {function(Node): boolean?} callback - Visitor.
- *   Stops visiting when the return value is `false`.
- * @this {Node} Context to search in.
- */
-
-function visitType(type, callback) {
-    /**
-     * A wrapper for `callback` to check it the node's
-     * type property matches `type`.
-     *
-     * @param {node} type - Descendant.
-     * @return {*} Passes `callback`s return value
-     *   through.
-     */
-
-    function wrapper(node) {
-        if (node.type === type) {
-            return callback(node);
-        }
-    }
-
-    this.visit(wrapper);
-}
-
-function attach(retext) {
-    var TextOM,
-        parentPrototype,
-        elementPrototype;
-
-    TextOM = retext.TextOM;
-    parentPrototype = TextOM.Parent.prototype;
-    elementPrototype = TextOM.Element.prototype;
-
-    /**
-     * Expose `visit` and `visitType` on Parents.
-     *
-     * Due to multiple inheritance of Elements (Parent
-     * and Child), these methods are explicitly added.
-     */
-
-    elementPrototype.visit = parentPrototype.visit = visit;
-    elementPrototype.visitType = parentPrototype.visitType = visitType;
-}
-
-/**
- * Expose `attach`.
- */
-
-plugin.attach = attach;
-
-/**
- * Expose `plugin`.
- */
-
-exports = module.exports = plugin;
-
-});
-
-require.register("wooorm~retext-language@0.1.2", function (exports, module) {
+require.register("wooorm~retext-language@0.2.0", function (exports, module) {
 'use strict';
 
 /**
@@ -4591,8 +4591,7 @@ function onchangeinparent(parent) {
     var node,
         dictionary,
         languages,
-        tuple,
-        index;
+        tuple;
 
     if (!parent) {
         return;
@@ -4606,16 +4605,12 @@ function onchangeinparent(parent) {
         languages = node.data.languages;
 
         if (languages) {
-            index = languages.length;
+            tuple = languages[0];
 
-            while (index--) {
-                tuple = languages[index];
-
-                if (tuple[0] in dictionary) {
-                    dictionary[tuple[0]] += tuple[1];
-                } else {
-                    dictionary[tuple[0]] = tuple[1];
-                }
+            if (tuple[0] in dictionary) {
+                dictionary[tuple[0]] += tuple[1];
+            } else {
+                dictionary[tuple[0]] = tuple[1];
             }
         }
 
@@ -4853,7 +4848,7 @@ module.exports = fixtures;
 
 require.register("retext-language-gh-pages", function (exports, module) {
 var Retext = require("wooorm~retext@0.2.0-rc.3");
-var language = require("wooorm~retext-language@0.1.2");
+var language = require("wooorm~retext-language@0.2.0");
 var debounce = require("component~debounce@1.0.0");
 var fixtures = require("retext-language-gh-pages/fixtures.js");
 
