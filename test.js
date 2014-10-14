@@ -10,7 +10,7 @@ var language,
     Retext,
     assert;
 
-language = require('..');
+language = require('./');
 content = require('retext-content');
 Retext = require('retext');
 visit = require('retext-visit');
