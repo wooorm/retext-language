@@ -54,7 +54,7 @@ otherSentences = [
     'Bütün insanlar ləyaqət və hüquqlarına görə.',
     'Tots els éssers humans neixen lliures i iguals',
     'چونکہ ہر انسان کی ذاتی عز',
-    '人類社会のすべての構成員の固有の尊厳と平等で譲るこ'
+    'ふぁぼとは、その人のツイートをお気に入り登録することです。RT記号の横の星を押せば完了です。'
 ];
 
 otherLanguages = ['azj', 'cat', 'urd', 'jpn'];
