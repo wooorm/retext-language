@@ -12,7 +12,7 @@
     "retext"
   ],
   "dependencies": {
-    "franc": "^0.2.0",
+    "franc": "^0.3.0",
     "retext-visit": "^0.1.1"
   },
   "repository": {

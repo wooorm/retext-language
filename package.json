@@ -12,8 +12,8 @@
     "retext"
   ],
   "dependencies": {
-    "franc": "^0.2.0",
-    "retext-visit": "^0.1.1"
+    "franc": "^0.3.0",
+    "retext-visit": "^0.2.0"
   },
   "repository": {
     "type": "git",
@@ -23,10 +23,10 @@
   "devDependencies": {
     "eslint": "^0.8.0",
     "istanbul": "^0.3.0",
-    "jscs": "^1.6.0",
+    "jscs": "^1.7.0",
     "mocha": "^1.21.0",
-    "retext": "^0.2.0-rc.2",
-    "retext-content": "^0.2.2"
+    "retext": "^0.3.0-rc.1",
+    "retext-content": "^0.2.0"
   },
   "scripts": {
     "test": "node_modules/.bin/_mocha --reporter spec --check-leaks -u exports test.js",
