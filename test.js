@@ -87,7 +87,7 @@ describe('language()', function () {
 
         index = -1;
 
-        tree.visitType(tree.SENTENCE_NODE, function (node) {
+        tree.visit(tree.SENTENCE_NODE, function (node) {
             index++;
 
             assert(node.data.language === languages[index]);
@@ -95,7 +95,7 @@ describe('language()', function () {
 
         index = -1;
 
-        tree.visitType(tree.PARAGRAPH_NODE, function (node) {
+        tree.visit(tree.PARAGRAPH_NODE, function (node) {
             index++;
 
             assert(paragraphLanguages[index].indexOf(
@@ -107,13 +107,13 @@ describe('language()', function () {
     });
 
     it('should set `language` to `null` when node has no value', function () {
-        tree.visitType(tree.SENTENCE_NODE, function (node) {
+        tree.visit(tree.SENTENCE_NODE, function (node) {
             node.removeContent();
 
             assert(node.data.language === null);
         });
 
-        tree.visitType(tree.PARAGRAPH_NODE, function (node) {
+        tree.visit(tree.PARAGRAPH_NODE, function (node) {
             assert(node.data.language === null);
         });
 
@@ -125,7 +125,7 @@ describe('language()', function () {
 
         index = -1;
 
-        tree.visitType(tree.SENTENCE_NODE, function (node) {
+        tree.visit(tree.SENTENCE_NODE, function (node) {
             index++;
 
             node.replaceContent(otherSentences[index]);
@@ -137,7 +137,7 @@ describe('language()', function () {
 
         index = -1;
 
-        tree.visitType(tree.PARAGRAPH_NODE, function (node) {
+        tree.visit(tree.PARAGRAPH_NODE, function (node) {
             index++;
 
             assert(otherParagraphLanguages[index].indexOf(
