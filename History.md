@@ -1,4 +1,15 @@
 
+n.n.n / 2014-10-21
+==================
+
+ * Refactor .jscs.json
+ * Update test for changes in retext-visit
+ * Update module for changes in retext-visit
+ * Update retext-visit, franc, retext
+ * Update .gitignore, .npmignore, bower ignore
+ * Update japanese fixture in test
+ * Move spec to test.js
+
 0.2.1 / 2014-10-03
 ==================
 
