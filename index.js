@@ -131,7 +131,7 @@ function onchange() {
  */
 
 function language(tree) {
-    tree.visitType(tree.PARAGRAPH_NODE, onchangeinparent);
+    tree.visit(tree.PARAGRAPH_NODE, onchangeinparent);
 }
 
 /**
