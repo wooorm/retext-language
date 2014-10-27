@@ -1,6 +1,6 @@
 {
   "name": "retext-language",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "description": "Detect the language of text with Retext",
   "license": "MIT",
   "keywords": [
