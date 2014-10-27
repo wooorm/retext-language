@@ -125,22 +125,12 @@ function onchange() {
 }
 
 /**
- * Define `language`.
- *
- * @param {Node} tree
- */
-
-function language(tree) {
-    tree.visit(tree.PARAGRAPH_NODE, onchangeinparent);
-}
-
-/**
  * Define `attach`.
  *
  * @param {Retext} retext
  */
 
-function attach(retext) {
+function language(retext) {
     var SentenceNode;
 
     retext.use(visit);
@@ -150,13 +140,17 @@ function attach(retext) {
     SentenceNode.on('changetextinside', onchange);
     SentenceNode.on('removeinside', onchange);
     SentenceNode.on('insertinside', onchange);
+
+    /**
+     * Define `onrun`.
+     *
+     * @param {Node} tree
+     */
+
+    return function (tree) {
+        tree.visit(tree.PARAGRAPH_NODE, onchangeinparent);
+    };
 }
-
-/**
- * Expose `attach`.
- */
-
-language.attach = attach;
 
 /**
  * Expose `language`.
