@@ -31,14 +31,14 @@ retext = new Retext()
  * Fixtures.
  */
 
-var document,
+var root,
     languages,
     paragraphLanguages,
     otherSentences,
     otherLanguages,
     otherParagraphLanguages;
 
-document =
+root =
     'Alle menslike wesens word vry. ' +
     'O Brasil caiu 26 posições em.\n' +
     'All human beings are born. ' +
@@ -71,7 +71,7 @@ describe('language()', function () {
     var tree;
 
     before(function (done) {
-        retext.parse(document, function (err, node) {
+        retext.parse(root, function (err, node) {
             tree = node;
 
             done(err);
