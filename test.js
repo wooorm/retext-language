@@ -4,15 +4,17 @@
  * Dependencies.
  */
 
-var language,
+var Retext,
+    language,
+    inspect,
     content,
     visit,
-    Retext,
     assert;
 
-language = require('./');
-content = require('retext-content');
 Retext = require('retext');
+language = require('./');
+inspect = require('retext-inspect');
+content = require('retext-content');
 visit = require('retext-visit');
 assert = require('assert');
 
@@ -23,6 +25,7 @@ assert = require('assert');
 var retext;
 
 retext = new Retext()
+    .use(inspect)
     .use(content)
     .use(visit)
     .use(language);
