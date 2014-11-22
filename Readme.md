@@ -1,4 +1,4 @@
-# retext-language [![Build Status](https://travis-ci.org/wooorm/retext-language.svg?branch=master)](https://travis-ci.org/wooorm/retext-language) [![Coverage Status](https://img.shields.io/coveralls/wooorm/retext-language.svg)](https://coveralls.io/r/wooorm/retext-language?branch=master)
+# retext-language [![Build Status](https://img.shields.io/travis/wooorm/retext-language.svg?style=flat)](https://travis-ci.org/wooorm/retext-language) [![Coverage Status](https://img.shields.io/coveralls/wooorm/retext-language.svg?style=flat)](https://coveralls.io/r/wooorm/retext-language?branch=master)
 
 Detect the language of text with **[Retext](https://github.com/wooorm/retext "Retext")**.
 
