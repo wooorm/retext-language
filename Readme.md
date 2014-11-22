@@ -22,45 +22,44 @@ $ bower install retext-language
 ## Usage
 
 ```js
-var Retext = require('retext'),
-    visit = require('retext-visit'),
-    language = require('retext-language'),
-    retext;
+var Retext = require('retext');
+var visit = require('retext-visit');
+var language = require('retext-language');
 
-retext = new Retext()
+var retext = new Retext()
     .use(visit)
     .use(language);
 
 retext.parse('Alle mennesker er født frie og', function (err, tree) {
     console.log(tree.data.language);
-    /* 'no' // Which is Norsk. */
+    /* 'nno' // Which is Norwegian Nynorsk. */
 });
 
 retext.parse(
     'Tots els éssers humans neixen lliures i iguals. ' + 
     'All human beings are born free and equal.\n' + 
     'Toate ființele umane se nasc libere și egale. ' + 
-    '人人生而自由﹐在尊嚴和權利上一律平等。'
+    '人人生而自由﹐在尊嚴和權利上一律平等。',
     function (err, tree) {
         console.log(tree.data.language);
-        /* 'zh' // Chinese */
+        /* 'cat' // Catalan */
 
-        tree.visitType(tree.PARAGRAPH_NODE, function (node) {
+        tree.visit(tree.PARAGRAPH_NODE, function (node) {
             console.log(node.toString(), node.data.language);
         });
         /**
-         * 'Tots els éssers humans neixen lliures i iguals. All human beings are born free and equal.', 'en' // English
-         * 'Toate ființele umane se nasc libere și egale. 人人生而自由﹐在尊嚴和權利上一律平等。', 'zh' // Chinese
+         * 'Tots els éssers humans neixen lliures i iguals. All human beings are born free and equal.', 'cat' // Catalan
+         * 'Toate ființele umane se nasc libere și egale. 人人生而自由﹐在尊嚴和權利上一律平等。', 'ron' // Romanian
          */
 
-        tree.visitType(tree.SENTENCE_NODE, function (node) {
+        tree.visit(tree.SENTENCE_NODE, function (node) {
             console.log(node.toString(), node.data.language);
         });
         /**
-         * 'Tots els éssers humans neixen lliures i iguals.', 'ca' // Catalan; Valencian
-         * 'All human beings are born free and equal.', 'en' // English
-         * 'Toate ființele umane se nasc libere și egale.', 'ro' // Romanian; Moldavian; Moldovan
-         * '人人生而自由﹐在尊嚴和權利上一律平等。' 'zh' // Chinese
+         * 'Tots els éssers humans neixen lliures i iguals.', 'cat' // Catalan
+         * 'All human beings are born free and equal.', 'eng' // English
+         * 'Toate ființele umane se nasc libere și egale.', 'ron' // Romanian
+         * '人人生而自由﹐在尊嚴和權利上一律平等。', 'cmn' // Mandarin Chinese
          */
     }
 );
@@ -68,13 +67,13 @@ retext.parse(
 
 ## Supported Languages
 
-retext-language supports the 86 languages provided by **[wooorm/franc](https://github.com/wooorm/franc)**. There’s a whole list of supported languages at [**franc**’s repo](https://github.com/wooorm/franc#supported-languages).
+retext-language supports the 175 languages provided by **[wooorm/franc](https://github.com/wooorm/franc#supported-languages)**. 
 
 **Note!** Results may vary depending on which [parser](https://github.com/wooorm/retext#parsers) you use. It’s probably better for most cases to detect the language (with **[wooorm/franc](https://github.com/wooorm/franc)**) before parsing, and choose a parser according to the results.
 
 ## API
 
-None, the plugin automatically detects the language of each sentence (using **[wooorm/franc](https://github.com/wooorm/franc)**) when it’s created or changed, and stores the language in `sentenceNode.data.language`. Information about all detected languages is stored in `sentenceNode.data.languages`.
+None, the plugin automatically detects the language of each sentence (using **[wooorm/franc](https://github.com/wooorm/franc)**), and stores the language in `sentenceNode.data.language`. Information about all detected languages is stored in `sentenceNode.data.languages`.
 
 Additionally, the **retext-language** exposes the average of the detected languages on parents (paragraphs and roots), through `parent.data.language` and `parent.data.languages`.
 
