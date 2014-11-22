@@ -1,51 +1,56 @@
-var Retext = require('retext');
-var language = require('retext-language');
-var debounce = require('debounce');
-var fixtures = require('retext-language-gh-pages/fixtures.js');
+/**
+ * Dependencies.
+ */
 
-var inputElement = document.getElementsByTagName('textarea')[0];
-var outputElement = document.getElementsByTagName('ol')[0];
-var buttonElement = document.getElementsByTagName('button')[0];
-var wrapperElement = document.getElementsByTagName('div')[0];
+var Retext = require('wooorm/retext@0.4.0');
+var language = require('wooorm/retext-language@0.3.2');
+var debounce = require('component/debounce@1.0.0');
+
+/**
+ * Retext.
+ */
 
 var retext = new Retext().use(language);
 
-inputElement.addEventListener('input', debounce(detectLanguage, 50));
+/**
+ * Fixtures.
+ */
 
-inputElement.value = getRandomFixture();
+var fixtures = require('./fixtures.js');
 
-function getRandomFixture() {
-    return fixtures[Math.floor(Math.random() * fixtures.length)];
-}
+/**
+ * DOM elements.
+ */
 
-function detectLanguage() {
-    retext.parse(inputElement.value, function (err, tree) {
+var $input = document.getElementsByTagName('textarea')[0];
+var $output = document.getElementsByTagName('output')[0];
+
+/**
+ * Event handlers
+ */
+
+function oninputchange() {
+    retext.parse($input.value, function (err, tree) {
         if (err) throw err;
 
-        visualiseResults(tree.data.languages);
+        $output.textContent = tree.data.language;
     });
 }
 
-function visualiseResults(results) {
-    wrapperElement.style.display = '';
+/**
+ * Attach event handlers.
+ */
 
-    while (outputElement.firstElementChild) {
-        outputElement.removeChild(outputElement.firstElementChild);
-    }
+$input.addEventListener('input', debounce(oninputchange, 50));
 
-    results = results.map(createResult);
+/**
+ * Set a random fixture.
+ */
 
-    results.forEach(function (node) {
-        outputElement.appendChild(node);
-    });
-}
+$input.value = fixtures[Math.floor(Math.random() * fixtures.length)];
 
-function createResult(result, n) {
-    var node = document.createElement('li');
+/**
+ * Provide initial answer.
+ */
 
-    node.textContent = result[0] + ': ' + result[1];
-
-    return node;
-}
-
-detectLanguage();
+oninputchange();
