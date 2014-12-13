@@ -12,8 +12,8 @@
     "retext"
   ],
   "dependencies": {
-    "franc": "^0.5.0",
-    "retext-visit": "^0.2.2"
+    "franc": "^0.7.0",
+    "retext-visit": "^0.2.0"
   },
   "repository": {
     "type": "git",

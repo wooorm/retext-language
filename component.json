@@ -12,8 +12,8 @@
     "retext"
   ],
   "dependencies": {
-    "wooorm/franc": "^0.5.0",
-    "wooorm/retext-visit": "^0.2.2"
+    "wooorm/franc": "^0.7.0",
+    "wooorm/retext-visit": "^0.2.0"
   },
   "repository": "wooorm/retext-language",
   "scripts" : [
