@@ -1,6 +1,6 @@
 # retext-language [![Build Status](https://img.shields.io/travis/wooorm/retext-language.svg?style=flat)](https://travis-ci.org/wooorm/retext-language) [![Coverage Status](https://img.shields.io/coveralls/wooorm/retext-language.svg?style=flat)](https://coveralls.io/r/wooorm/retext-language?branch=master)
 
-Detect the language of text with **[Retext](https://github.com/wooorm/retext "Retext")**.
+Detect the language of text with **[Retext](https://github.com/wooorm/retext)**.
 
 ## Installation
 
@@ -73,9 +73,9 @@ retext-language supports the 175 languages provided by **[wooorm/franc](https://
 
 ## API
 
-None, the plugin automatically detects the language of each sentence (using **[wooorm/franc](https://github.com/wooorm/franc)**), and stores the language in `sentenceNode.data.language`. Information about all detected languages is stored in `sentenceNode.data.languages`.
+None, **retext-language** automatically detects the language of each [`SentenceNode`](https://github.com/wooorm/textom#textomsentencenode-nlcstsentencenode) (using **[wooorm/franc](https://github.com/wooorm/franc)**), and stores the language in `node.data.language`. Additionally, information about all detected languages is stored in `node.data.languages`.
 
-Additionally, the **retext-language** exposes the average of the detected languages on parents (paragraphs and roots), through `parent.data.language` and `parent.data.languages`.
+The average of the detected languages on parents ([paragraph](https://github.com/wooorm/textom#textomparagraphnode-nlcstparagraphnode)s and [root](https://github.com/wooorm/textom#textomrootnode-nlcstrootnode)s), through the same `parent.data.language` and `parent.data.languages`.
 
 ## License
 
