@@ -79,4 +79,4 @@ Additionally, the **retext-language** exposes the average of the detected langua
 
 ## License
 
-MIT © Titus Wormer
+MIT © [Titus Wormer](http://wooorm.com)
