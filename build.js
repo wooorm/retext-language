@@ -87,8 +87,8 @@
  * Dependencies.
  */
 
-var Retext = require('wooorm/retext@0.4.0');
-var language = require('wooorm/retext-language@0.3.2');
+var Retext = require('wooorm/retext@0.5.0-rc.1');
+var language = require('wooorm/retext-language@0.3.3');
 var debounce = require('component/debounce@1.0.0');
 
 /**
@@ -140,7 +140,7 @@ $input.value = fixtures[Math.floor(Math.random() * fixtures.length)];
 
 oninputchange();
 
-}, {"wooorm/retext@0.4.0":2,"wooorm/retext-language@0.3.2":3,"component/debounce@1.0.0":4,"./fixtures.js":5}],
+}, {"wooorm/retext@0.5.0-rc.1":2,"wooorm/retext-language@0.3.3":3,"component/debounce@1.0.0":4,"./fixtures.js":5}],
 2: [function(require, module, exports) {
 'use strict';
 
@@ -367,6 +367,7 @@ function nlcstToTextOM(TextOM, nlcst) {
     var index,
         node,
         children,
+        nodes,
         data,
         attribute;
 
@@ -375,10 +376,13 @@ function nlcstToTextOM(TextOM, nlcst) {
     if (has.call(nlcst, 'children')) {
         index = -1;
         children = nlcst.children;
+        nodes = [];
 
         while (children[++index]) {
-            node.append(nlcstToTextOM(TextOM, children[index]));
+            nodes[index] = nlcstToTextOM(TextOM, children[index]);
         }
+
+        node.appendAll(nodes);
     } else {
         node.fromString(nlcst.value);
     }
@@ -408,31 +412,100 @@ module.exports = nlcstToTextOM;
 
 var has,
     arrayPrototype,
-    arrayUnshift,
-    arrayPush,
     arraySlice,
-    arrayIndexOf,
-    arraySplice;
+    arrayJoin;
 
 has = Object.prototype.hasOwnProperty;
 
 arrayPrototype = Array.prototype;
 
-arrayUnshift = arrayPrototype.unshift;
-arrayPush = arrayPrototype.push;
 arraySlice = arrayPrototype.slice;
-arrayIndexOf = arrayPrototype.indexOf;
-arraySplice = arrayPrototype.splice;
+arrayJoin = arrayPrototype.join;
 
 /**
- * Warning message when `indexOf` is not available.
+ * Utilities.
+ *
+ * These utilities are specialised to work on nodes,
+ * with a length property that needs updating,
+ * and without falsey/missing values.
  */
 
-/* istanbul ignore if */
-if (!arrayIndexOf) {
-    throw new Error(
-        'Missing `Array#indexOf()` method for TextOM'
-    );
+/**
+ * Insert `value` at `position` in `arrayLike`,
+ * and move all values in `arrayLike` from `position`
+ * to `length` one position forwards.
+ *
+ * Expects all values in `arrayLike` to be truthy.
+ *
+ * @param {Array.<*>} arrayLike
+ * @param {*} value
+ * @param {number} position
+ */
+
+function arrayLikeMove(arrayLike, value, position) {
+    var next;
+
+    if (!arrayLike[position]) {
+        arrayLike[position] = value;
+
+        position++;
+    } else {
+        while (value) {
+            next = arrayLike[position];
+
+            arrayLike[position] = value;
+
+            position++;
+
+            value = next;
+        }
+    }
+
+    arrayLike.length = position;
+}
+
+/**
+ * Remove the item at `position` in `arrayLike`,
+ * and move all values in `arrayLike` from `position`
+ * to `length` one position backwards.
+ *
+ * Expects all values in `arrayLike` to be truthy.
+ *
+ * @param {Array.<*>} arrayLike
+ * @param {number} position
+ */
+
+function arrayLikeRemove(arrayLike, position) {
+    while (arrayLike[position]) {
+        arrayLike[position] = arrayLike[++position];
+    }
+
+    arrayLike.length--;
+}
+
+/**
+ * Find the position of `value` in `arrayLike`.
+ * Returns `-1` if value is not found.
+ *
+ * Expects all values in `arrayLike` to be truthy.
+ *
+ * @param {Array.<*>} arrayLike
+ * @param {*} value
+ * @return {number} position, or `-1`
+ */
+
+function arrayLikeIndexOf(arrayLike, value) {
+    var index;
+
+    index = -1;
+
+    while (arrayLike[++index]) {
+        if (arrayLike[index] === value) {
+            return index;
+        }
+    }
+
+    return -1;
 }
 
 /**
@@ -624,18 +697,215 @@ function canInsertIntoParent(parent, child) {
         return true;
     }
 
-    return allowed.indexOf(child.type) > -1;
+    return arrayLikeIndexOf(allowed, child.type) !== -1;
 }
 
 /**
- * Throw an error if an insertion is invalid.
+ * Insert all `children` after `start` in `parent`, or at
+ * `parent`s head when `start` is not given.
+ *
+ * @param {Parent} parent
+ * @param {Child} start
+ * @param {Array.<Child>} children
+ * @return {Array.<Child>} `children`.
+ */
+
+function insertAll(parent, start, children) {
+    var index,
+        length,
+        prev,
+        end,
+        child,
+        indice;
+
+    if (!parent) {
+        throw new Error(
+            'TypeError: `' + parent + '` is not a ' +
+            'valid `parent` for `insertAll`'
+        );
+    }
+
+    if (!children) {
+        throw new Error(
+            'TypeError: `' + children + '` is not a ' +
+            'valid `children` for `insertAll`'
+        );
+    }
+
+    /**
+     * Exit early.
+     */
+
+    length = children.length;
+
+    if (!length) {
+        return children;
+    }
+
+    if (start) {
+        if (start.parent !== parent) {
+            throw new Error(
+                'HierarchyError: The operated on node ' +
+                'is detached from `parent`'
+            );
+        }
+
+        indice = arrayLikeIndexOf(parent, start);
+
+        if (indice === -1) {
+            throw new Error(
+                'HierarchyError: The operated on node ' +
+                'is attached to `parent`, but `parent` ' +
+                'has no index corresponding to the node'
+            );
+        }
+    }
+
+    /**
+     * Remove `children` from their parents.
+     */
+
+    index = -1;
+
+    while (++index < length) {
+        child = children[index];
+
+        if (typeof child.remove !== 'function') {
+            throw new Error(
+                'TypeError: `' + child + '` does not ' +
+                'have a `remove` method'
+            );
+        }
+
+        if (parent === child) {
+            throw new Error(
+                'HierarchyError: Cannot insert `node` into ' +
+                'self'
+            );
+        }
+
+        /**
+         * Detach `child`.
+         */
+
+        child.remove();
+    }
+
+    /**
+     * Clean start and end after removal.
+     */
+
+    if (start && start.parent === parent) {
+        end = start.next;
+    } else {
+        start = null;
+        end = parent.head;
+        indice = -1;
+    }
+
+    /**
+     * Insert `children`.
+     */
+
+    index = -1;
+
+    prev = start;
+
+    while (children[++index]) {
+        child = children[index];
+
+        /**
+         * Set `child`s parent to parent.
+         */
+
+        child.parent = parent;
+
+        /**
+         * Set `child`s prev node to `prev` and
+         * `prev`s next node to `child`.
+         */
+
+        if (prev) {
+            child.prev = prev;
+
+            prev.next = child;
+        }
+
+        /**
+         * Prepare for the next iteration.
+         */
+
+        prev = child;
+    }
+
+    /**
+     * Set the `child`s next node to `end`.
+     */
+
+    if (end) {
+        prev.next = end;
+        end.prev = prev;
+    }
+
+    /**
+     * Update `head` and `tail`.
+     */
+
+    if (!start) {
+        parent.head = children[0];
+
+        if (!parent.tail && (end || length !== 1)) {
+            parent.tail = end || prev;
+        }
+    } else if (!end) {
+        parent.tail = prev;
+    }
+
+    /**
+     * Update array-like representation.
+     *
+     * The linked-list representation is valid, but
+     */
+
+    index = indice;
+
+    child = children[0];
+
+    while (child) {
+        parent[++index] = child;
+
+        child = child.next;
+    }
+
+    parent.length += children.length;
+
+    /**
+     * Emit events.
+     */
+
+    index = -1;
+
+    while (children[++index]) {
+        children[index].trigger('insert', parent);
+    }
+
+    return children;
+}
+
+/**
+ * Insert `child` after `item` in `parent`, or at
+ * `parent`s head when `item` is not given.
  *
  * @param {Parent} parent
  * @param {Child} item
  * @param {Child} child
+ * @return {Child} `child`.
  */
 
-function validateInsert(parent, item, child) {
+function insert(parent, item, child) {
+    var next,
+        indice;
+
     if (!parent) {
         throw new Error(
             'TypeError: `' + parent + '` is not a ' +
@@ -653,7 +923,7 @@ function validateInsert(parent, item, child) {
     if (parent === child || parent === item) {
         throw new Error(
             'HierarchyError: Cannot insert `node` into ' +
-            '`node`'
+            'self'
         );
     }
 
@@ -672,43 +942,12 @@ function validateInsert(parent, item, child) {
     }
 
     /**
-     * Insert after...
+     * Exit early.
      */
 
-    if (item) {
-        /* istanbul ignore if: Wrong-usage */
-        if (item.parent !== parent) {
-            throw new Error(
-                'HierarchyError: The operated on node ' +
-                'is detached from `parent`'
-            );
-        }
-
-        /* istanbul ignore if: Wrong-usage */
-        if (arrayIndexOf.call(parent, item) === -1) {
-            throw new Error(
-                'HierarchyError: The operated on node ' +
-                'is attached to `parent`, but `parent` ' +
-                'has no indice corresponding to the node'
-            );
-        }
+    if (item && item === child) {
+        return child;
     }
-}
-
-/**
- * Insert `child` after `item` in `parent`, or at
- * `parent`s head when `item` is not given.
- *
- * @param {Parent} parent
- * @param {Child} item
- * @param {Child} child
- * @return {Child} - `child`.
- */
-
-function insert(parent, item, child) {
-    var next;
-
-    validateInsert(parent, item, child);
 
     /**
      * Detach `child`.
@@ -725,6 +964,29 @@ function insert(parent, item, child) {
     if (item) {
         next = item.next;
 
+        if (item.parent !== parent) {
+            throw new Error(
+                'HierarchyError: The operated on node ' +
+                'is detached from `parent`'
+            );
+        }
+
+        indice = arrayLikeIndexOf(parent, item);
+
+        if (indice === -1) {
+            throw new Error(
+                'HierarchyError: The operated on node ' +
+                'is attached to `parent`, but `parent` ' +
+                'has no index corresponding to the node'
+            );
+        }
+    } else {
+        item = null;
+        next = parent.head;
+        indice = -1;
+    }
+
+    if (item || next) {
         /**
          * If `item` has a next node, link `child`s next
          * node, to `item`s next node, and link the next
@@ -741,54 +1003,27 @@ function insert(parent, item, child) {
          * the next node of `item` to `child`.
          */
 
-        child.prev = item;
-        item.next = child;
+        if (item) {
+            child.prev = item;
+            item.next = child;
+
+            if (item === parent.tail || !parent.tail) {
+                parent.tail = child;
+            }
+        } else {
+            parent.head = child;
+
+            if (!parent.tail) {
+                parent.tail = next;
+            }
+        }
 
         /**
          * If the parent has no last node or if `item` is
-         * `parent`s last node, link `parent`s last node
-         * to `child`.
-         *
-         * Otherwise, insert `child` into `parent` after
-         * `item`s.
+         * `parent`s last node.
          */
 
-        if (item === parent.tail || !parent.tail) {
-            parent.tail = child;
-            arrayPush.call(parent, child);
-        } else {
-            arraySplice.call(
-                parent, arrayIndexOf.call(parent, item) + 1, 0, child
-            );
-        }
-    } else if (parent.head) {
-        next = parent.head;
-
-        /**
-         * Set `child`s next node to head and set the
-         * previous node of head to `child`.
-         */
-
-        child.next = next;
-        next.prev = child;
-
-        /**
-         * Set the `parent`s head to `child`.
-         */
-
-        parent.head = child;
-
-        /**
-         * If the the parent has no last node, link the
-         * parents last node to what used to be it's
-         * head.
-         */
-
-        if (!parent.tail) {
-            parent.tail = next;
-        }
-
-        arrayUnshift.call(parent, child);
+        arrayLikeMove(parent, child, indice + 1);
     } else {
         /**
          * Prepend the node: There is no `head`, nor
@@ -806,19 +1041,7 @@ function insert(parent, item, child) {
      * Emit events.
      */
 
-    next = child.next;
-
     child.trigger('insert', parent);
-
-    if (item) {
-        item.emit('changenext', child, next);
-        child.emit('changeprev', item, null);
-    }
-
-    if (next) {
-        next.emit('changeprev', child, item);
-        child.emit('changenext', next, null);
-    }
 
     return child;
 }
@@ -836,9 +1059,11 @@ function remove(node) {
         next,
         indice;
 
-    /* istanbul ignore if: Wrong-usage */
     if (!node) {
-        return false;
+        throw new Error(
+            'TypeError: `' + node + '` is not a ' +
+            'valid `node` for `remove`'
+        );
     }
 
     /**
@@ -899,35 +1124,32 @@ function remove(node) {
         next.prev = prev;
     }
 
-    indice = arrayIndexOf.call(parent, node);
+    indice = arrayLikeIndexOf(parent, node);
 
-    /* istanbul ignore else: Wrong-usage */
-    if (indice !== -1) {
-        arraySplice.call(parent, indice, 1);
+    if (indice === -1) {
+        throw new Error(
+            'HierarchyError: The operated on node ' +
+            'is attached to `parent`, but `parent` ' +
+            'has no index corresponding to the node'
+        );
     }
+
+    arrayLikeRemove(parent, indice);
 
     /**
      * Remove links from `node` to both its next and
      * previous items, and its parent.
      */
 
-    node.prev = node.next = node.parent = null;
+    node.prev = null;
+    node.next = null;
+    node.parent = null;
 
     /**
      * Emit events.
      */
 
     node.trigger('remove', parent, parent);
-
-    if (next) {
-        next.emit('changeprev', prev || null, node);
-        node.emit('changenext', null, next);
-    }
-
-    if (prev) {
-        node.emit('changeprev', null, prev);
-        prev.emit('changenext', next || null, node);
-    }
 
     return node;
 }
@@ -937,7 +1159,7 @@ function remove(node) {
  *
  * @param {number} position
  * @param {number} length
- * @param {number} position - Normalized position.
+ * @param {number} position - Normalised position.
  */
 
 function validateSplitPosition(position, length) {
@@ -969,10 +1191,9 @@ function mergeData(node, nlcst) {
     data = node.data;
 
     for (attribute in data) {
-        /* istanbul ignore else */
         if (has.call(data, attribute)) {
             /**
-             * This makes sure no empy data objects
+             * This makes sure no empty data objects
              * are created.
              */
 
@@ -1119,7 +1340,7 @@ function TextOMConstructor() {
 
         if (typeof handler !== 'function') {
             if (handler === null || handler === undefined) {
-                handlers.length = 0;
+                self.callbacks[name] = [];
 
                 return self;
             }
@@ -1172,9 +1393,11 @@ function TextOMConstructor() {
 
         constructors = self.constructor.constructors;
 
-        /* istanbul ignore if: Wrong-usage */
         if (!constructors) {
-            return true;
+            throw new Error(
+                'HierarchyError: The operated on node ' +
+                'is not a node'
+            );
         }
 
         length = constructors.length;
@@ -1314,7 +1537,6 @@ function TextOMConstructor() {
          */
 
         for (key in self) {
-            /* istanbul ignore else */
             if (has.call(self, key)) {
                 Constructor[key] = self[key];
             }
@@ -1402,6 +1624,18 @@ function TextOMConstructor() {
     };
 
     /**
+     * Insert children at the beginning of the parent.
+     *
+     * @param {Array.<Child>} children - Children to
+     *   insert at the start.
+     * @return {self}
+     */
+
+    parentPrototype.prependAll = function (children) {
+        return insertAll(this, null, children);
+    };
+
+    /**
      * Insert a child at the end of the list (like Array#push).
      *
      * @param {Child} child - Child to insert as the new
@@ -1411,6 +1645,18 @@ function TextOMConstructor() {
 
     parentPrototype.append = function (child) {
         return insert(this, this.tail || this.head, child);
+    };
+
+    /**
+     * Insert children at the end of the parent.
+     *
+     * @param {Array.<Child>} children - Children to
+     *   insert at the end.
+     * @return {self}
+     */
+
+    parentPrototype.appendAll = function (children) {
+        return insertAll(this, this.tail || this.head, children);
     };
 
     /**
@@ -1442,20 +1688,7 @@ function TextOMConstructor() {
      */
 
     parentPrototype.toString = function () {
-        var values,
-            node;
-
-        values = [];
-
-        node = this.head;
-
-        while (node) {
-            values.push(node);
-
-            node = node.next;
-        }
-
-        return values.join('');
+        return arrayJoin.call(this, '');
     };
 
     /**
@@ -1467,9 +1700,9 @@ function TextOMConstructor() {
 
     parentPrototype.valueOf = function () {
         var self,
+            index,
             children,
-            nlcst,
-            node;
+            nlcst;
 
         self = this;
 
@@ -1480,12 +1713,10 @@ function TextOMConstructor() {
             'children': children
         };
 
-        node = self.head;
+        index = -1;
 
-        while (node) {
-            children.push(node.valueOf());
-
-            node = node.next;
+        while (self[++index]) {
+            children[index] = self[index].valueOf();
         }
 
         mergeData(self, nlcst);
@@ -1562,6 +1793,19 @@ function TextOMConstructor() {
     };
 
     /**
+     * Insert `children` before the context in its parent.
+     *
+     * @param {Array.<Child>} children - Children to
+     *   insert.
+     * @this {Child}
+     * @return {self}
+     */
+
+    childPrototype.beforeAll = function (children) {
+        return insertAll(this.parent, this.prev, children);
+    };
+
+    /**
      * Insert `child` after the context in its parent.
      *
      * @param {Child} child - Child to insert.
@@ -1571,6 +1815,19 @@ function TextOMConstructor() {
 
     childPrototype.after = function (child) {
         return insert(this.parent, this, child);
+    };
+
+    /**
+     * Insert `children` after the context in its parent.
+     *
+     * @param {Array.<Child>} children - Children to
+     *   insert.
+     * @this {Child}
+     * @return {self}
+     */
+
+    childPrototype.afterAll = function (children) {
+        return insertAll(this.parent, this, children);
     };
 
     /**
@@ -1641,7 +1898,6 @@ function TextOMConstructor() {
 
     Element.prototype.split = function (position) {
         var self,
-            clone,
             cloneNode,
             index;
 
@@ -1653,12 +1909,17 @@ function TextOMConstructor() {
         cloneNode = insert(self.parent, self.prev, new self.constructor());
         /*eslint-enable new-cap */
 
-        clone = arraySlice.call(self);
-
         index = -1;
 
-        while (++index < position && clone[index]) {
-            cloneNode.append(clone[index]);
+        /**
+         * Move the children of `self` to the clone,
+         * from `0` to `position`. Looks a bit weird,
+         * but when a node is appended, it's also
+         * removed.
+         */
+
+        while (++index < position && self[0]) {
+            cloneNode.append(self[0]);
         }
 
         return cloneNode;
@@ -2858,7 +3119,7 @@ function nlcstToString(nlcst) {
         length,
         children;
 
-    if (nlcst.value) {
+    if (typeof nlcst.value === 'string') {
         return nlcst.value;
     }
 
@@ -4183,11 +4444,11 @@ module.exports = modifier(makeFinalWhiteSpaceSiblings);
  */
 
 var nlcstToString,
-    plugin,
+    modifier,
     expressions;
 
 nlcstToString = require('nlcst-to-string');
-plugin = require('../plugin');
+modifier = require('../modifier');
 expressions = require('../expressions');
 
 /**
@@ -4242,6 +4503,8 @@ function breakImplicitSentences(child, index, parent) {
             'type': 'SentenceNode',
             'children': children.slice(position + 1)
         });
+
+        return index + 1;
     }
 }
 
@@ -4249,9 +4512,9 @@ function breakImplicitSentences(child, index, parent) {
  * Expose `breakImplicitSentences` as a plugin.
  */
 
-module.exports = plugin(breakImplicitSentences);
+module.exports = modifier(breakImplicitSentences);
 
-}, {"nlcst-to-string":30,"../plugin":13,"../expressions":12}],
+}, {"nlcst-to-string":30,"../modifier":14,"../expressions":12}],
 28: [function(require, module, exports) {
 'use strict';
 
@@ -4919,7 +5182,7 @@ function language(retext) {
 
     retext.use(visit);
 
-    SentenceNode = retext.parser.TextOM.SentenceNode;
+    SentenceNode = retext.TextOM.SentenceNode;
 
     SentenceNode.on('changetextinside', onchange);
     SentenceNode.on('removeinside', onchange);
@@ -5513,11 +5776,11 @@ function getCleanTrigramTuplesAsDictionary(tuples) {
  */
 
 module.exports = {
-    'clean' : clean,
-    'trigrams' : getCleanTrigrams,
-    'asDictionary' : getCleanTrigramsAsDictionary,
-    'asTuples' : getCleanTrigramsAsTuples,
-    'tuplesAsDictionary' : getCleanTrigramTuplesAsDictionary
+    'clean': clean,
+    'trigrams': getCleanTrigrams,
+    'asDictionary': getCleanTrigramsAsDictionary,
+    'asTuples': getCleanTrigramsAsTuples,
+    'tuplesAsDictionary': getCleanTrigramTuplesAsDictionary
 };
 
 }, {"n-gram":40}],
