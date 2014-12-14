@@ -77,6 +77,20 @@ None, **retext-language** automatically detects the language of each [`SentenceN
 
 The average of the detected languages on parents ([paragraph](https://github.com/wooorm/textom#textomparagraphnode-nlcstparagraphnode)s and [root](https://github.com/wooorm/textom#textomrootnode-nlcstrootnode)s), through the same `parent.data.language` and `parent.data.languages`.
 
+## Performance
+
+On a MacBook air:
+
+```
+A paragraph (5 sentences, 100 words)
+retext w/o retext-language x 215 ops/sec ±1.48% (80 runs sampled)
+retext w/ retext-language x 1.52 ops/sec ±1.27% (8 runs sampled)
+
+A section (10 paragraphs, 50 sentences, 1,000 words)
+retext w/o retext-language x 20.79 ops/sec ±2.92% (39 runs sampled)
+retext w/ retext-language x 0.15 ops/sec ±4.92% (5 runs sampled)
+```
+
 ## License
 
 MIT © [Titus Wormer](http://wooorm.com)

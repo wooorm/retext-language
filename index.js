@@ -135,7 +135,7 @@ function language(retext) {
 
     retext.use(visit);
 
-    SentenceNode = retext.parser.TextOM.SentenceNode;
+    SentenceNode = retext.TextOM.SentenceNode;
 
     SentenceNode.on('changetextinside', onchange);
     SentenceNode.on('removeinside', onchange);
