@@ -114,7 +114,7 @@ function onchangeinparent(parent) {
  * @this {SentenceNode}
  */
 
-function onchange() {
+function onchangeinside() {
     var self;
 
     self = this;
@@ -131,15 +131,9 @@ function onchange() {
  */
 
 function language(retext) {
-    var SentenceNode;
-
     retext.use(visit);
 
-    SentenceNode = retext.TextOM.SentenceNode;
-
-    SentenceNode.on('changetextinside', onchange);
-    SentenceNode.on('removeinside', onchange);
-    SentenceNode.on('insertinside', onchange);
+    retext.TextOM.SentenceNode.on('changeinside', onchangeinside);
 
     /**
      * Define `onrun`.
