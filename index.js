@@ -1,6 +1,6 @@
 'use strict';
 
-/**
+/*
  * Dependencies.
  */
 
@@ -20,7 +20,6 @@ visit = require('retext-visit');
  * @param {{1: number}} a
  * @param {{1: number}} b
  */
-
 function sort(a, b) {
     return a[1] - b[1];
 }
@@ -36,7 +35,6 @@ function sort(a, b) {
  *   array containing language--distance tupples,
  *   sorted by count (low to high).
  */
-
 function sortDistanceObject(dictionary) {
     var distances,
         distance;
@@ -57,7 +55,6 @@ function sortDistanceObject(dictionary) {
  * @param {Node} node
  * @param {Array.<Array.<string, number>>} languages
  */
-
 function setLanguages(node, languages) {
     var primaryLanguage;
 
@@ -72,7 +69,6 @@ function setLanguages(node, languages) {
  *
  * @param {Parent} parent
  */
-
 function onchangeinparent(parent) {
     var node,
         dictionary,
@@ -113,7 +109,6 @@ function onchangeinparent(parent) {
  *
  * @this {SentenceNode}
  */
-
 function onchangeinside() {
     var self;
 
@@ -125,17 +120,17 @@ function onchangeinside() {
 }
 
 /**
- * Define `attach`.
+ * Define `language`.
  *
  * @param {Retext} retext
+ * @return {function(Node)}
  */
-
 function language(retext) {
     retext.use(visit);
 
     retext.TextOM.SentenceNode.on('changeinside', onchangeinside);
 
-    /**
+    /*
      * Define `onrun`.
      *
      * @param {Node} tree
@@ -146,7 +141,7 @@ function language(retext) {
     };
 }
 
-/**
+/*
  * Expose `language`.
  */
 

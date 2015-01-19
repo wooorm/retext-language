@@ -1,6 +1,6 @@
 'use strict';
 
-/**
+/*
  * Dependencies.
  */
 
@@ -18,7 +18,7 @@ content = require('retext-content');
 visit = require('retext-visit');
 assert = require('assert');
 
-/**
+/*
  * Retext.
  */
 
@@ -30,7 +30,7 @@ retext = new Retext()
     .use(visit)
     .use(language);
 
-/**
+/*
  * Fixtures.
  */
 
@@ -66,7 +66,7 @@ otherParagraphLanguages = [
     otherLanguages.slice(0, 2), otherLanguages.slice(2)
 ];
 
-/**
+/*
  * Tests.
  */
 

@@ -4,7 +4,7 @@ var Benchmark,
     Retext,
     language;
 
-/**
+/*
  * Dependencies.
  */
 
@@ -12,7 +12,7 @@ Benchmark = require('benchmark');
 Retext = require('retext');
 language = require('./');
 
-/**
+/*
  * Dependencies.
  */
 
@@ -22,7 +22,7 @@ var retext,
 retext = new Retext();
 retextWithLanguage = new Retext().use(language);
 
-/**
+/*
  * Test data: A (big?) section (w/ 10 paragraphs, 50
  * sentences, 1,000 words);
  *
@@ -49,15 +49,23 @@ paragraph = 'Thou art a churlish knight to so affront a lady ' +
 
 section = paragraph + Array(10).join('\n\n' + paragraph);
 
-/**
+/*
  * Benchmarks
  */
 
+/**
+ * Log on start.
+ */
 function onstart() {
     console.log();
     console.log(this.name);
 }
 
+/**
+ * Log on cycle.
+ *
+ * @param {Event} event
+ */
 function oncycle(event) {
     console.log(String(event.target));
 }
