@@ -87,8 +87,8 @@
  * Dependencies.
  */
 
-var Retext = require('wooorm/retext@0.5.0-rc.1');
-var language = require('wooorm/retext-language@0.3.3');
+var Retext = require('wooorm/retext@0.5.0');
+var language = require('wooorm/retext-language@0.3.4');
 var debounce = require('component/debounce@1.0.0');
 
 /**
@@ -140,7 +140,7 @@ $input.value = fixtures[Math.floor(Math.random() * fixtures.length)];
 
 oninputchange();
 
-}, {"wooorm/retext@0.5.0-rc.1":2,"wooorm/retext-language@0.3.3":3,"component/debounce@1.0.0":4,"./fixtures.js":5}],
+}, {"wooorm/retext@0.5.0":2,"wooorm/retext-language@0.3.4":3,"component/debounce@1.0.0":4,"./fixtures.js":5}],
 2: [function(require, module, exports) {
 'use strict';
 
@@ -149,7 +149,7 @@ var nlcstToTextOM,
     ParseLatin,
     Ware;
 
-/**
+/*
  * Dependencies.
  */
 
@@ -163,9 +163,8 @@ Ware = require('ware');
  *
  * @param {Function?} parser - the parser to use. Defaults
  *   to a new instance of `parse-latin`.
- * @constructor
+ * @constructor Retext
  */
-
 function Retext(parser) {
     var self,
         TextOM;
@@ -183,7 +182,7 @@ function Retext(parser) {
     self.parser = parser;
     self.TextOM = TextOM;
 
-    /**
+    /*
      * Expose `TextOM` on `parser`, and vice versa.
      */
 
@@ -210,9 +209,8 @@ function Retext(parser) {
  * it on completion.
  *
  * @param {function(Retext, Object): function(Node, Object, Function?)} plugin
- * @return this
+ * @return {Retext} - self
  */
-
 Retext.prototype.use = function (plugin, options) {
     var self,
         onparse;
@@ -237,7 +235,7 @@ Retext.prototype.use = function (plugin, options) {
 
     self = this;
 
-    /**
+    /*
      * Ware does not know which plugins are attached,
      * only which `onrun` methods are. Thus, we have
      * a custom list of `plugins`, and here we check
@@ -267,9 +265,8 @@ Retext.prototype.use = function (plugin, options) {
  * @param {Object} [options={}] - Optional settings.
  * @param {function(Error, Node)} done - Callback to
  *   invoke when the transformations have completed.
- * @return this
+ * @return {Retext} - self
  */
-
 Retext.prototype.parse = function (value, options, done) {
     var self,
         nlcst;
@@ -307,9 +304,8 @@ Retext.prototype.parse = function (value, options, done) {
  * @param {Object} [options={}] - Optional settings.
  * @param {function(Error, Node)} done - Callback to
  *   invoke when the transformations have completed.
- * @return this
+ * @return {Retext} - self
  */
-
 Retext.prototype.run = function (node, options, done) {
     var self;
 
@@ -335,7 +331,7 @@ Retext.prototype.run = function (node, options, done) {
     return self;
 };
 
-/**
+/*
  * Expose `Retext`.
  */
 
@@ -345,7 +341,7 @@ module.exports = Retext;
 6: [function(require, module, exports) {
 'use strict';
 
-/**
+/*
  * Constants.
  */
 
@@ -362,7 +358,6 @@ has = Object.prototype.hasOwnProperty;
  * @return {Node} From `nlcst` and `TextOM` constructed
  *   node.
  */
-
 function nlcstToTextOM(TextOM, nlcst) {
     var index,
         node,
@@ -406,7 +401,7 @@ module.exports = nlcstToTextOM;
 7: [function(require, module, exports) {
 'use strict';
 
-/**
+/*
  * Cached methods.
  */
 
@@ -422,7 +417,7 @@ arrayPrototype = Array.prototype;
 arraySlice = arrayPrototype.slice;
 arrayJoin = arrayPrototype.join;
 
-/**
+/*
  * Utilities.
  *
  * These utilities are specialised to work on nodes,
@@ -440,8 +435,8 @@ arrayJoin = arrayPrototype.join;
  * @param {Array.<*>} arrayLike
  * @param {*} value
  * @param {number} position
+ * @private
  */
-
 function arrayLikeMove(arrayLike, value, position) {
     var next;
 
@@ -473,8 +468,8 @@ function arrayLikeMove(arrayLike, value, position) {
  *
  * @param {Array.<*>} arrayLike
  * @param {number} position
+ * @private
  */
-
 function arrayLikeRemove(arrayLike, position) {
     while (arrayLike[position]) {
         arrayLike[position] = arrayLike[++position];
@@ -492,8 +487,8 @@ function arrayLikeRemove(arrayLike, position) {
  * @param {Array.<*>} arrayLike
  * @param {*} value
  * @return {number} position, or `-1`
+ * @private
  */
-
 function arrayLikeIndexOf(arrayLike, value) {
     var index;
 
@@ -508,7 +503,7 @@ function arrayLikeIndexOf(arrayLike, value) {
     return -1;
 }
 
-/**
+/*
  * Static node types.
  */
 
@@ -532,7 +527,7 @@ WHITE_SPACE_NODE = 'WhiteSpaceNode';
 SOURCE_NODE = 'SourceNode';
 TEXT_NODE = 'TextNode';
 
-/**
+/*
  * Static node names.
  */
 
@@ -551,20 +546,20 @@ TEXT = 'Text';
 /**
  * Invoke listeners while a condition returns true
  *
- * @param {function(this:Node, parameters...): function(): boolean} condition
+ * @param {function(): function(): boolean} condition
+ * @private
  */
-
 function invokeEvent(condition) {
     /**
      * Invoke every callback in `callbacks` with `parameters`
      * and `context` as its context object, while the condition
      * returns truthy.
      *
-     * @param {Array.<Function>} callbacks
+     * @param {Array.<Function>} handlers
+     * @param {string} name
      * @param {Array.<*>} parameters
      * @param {Node} context
      */
-
     return function (handlers, name, parameters, context) {
         var index,
             length,
@@ -599,7 +594,7 @@ function invokeEvent(condition) {
     };
 }
 
-/**
+/*
  * `remove` event condition.
  */
 
@@ -614,13 +609,12 @@ invokeEvent.remove = invokeEvent(function (previousParent) {
      *
      * @return {boolean}
      */
-
     return function () {
         return previousParent !== self.parent;
     };
 });
 
-/**
+/*
  * `insert` event condition.
  */
 
@@ -637,13 +631,12 @@ invokeEvent.insert = invokeEvent(function () {
      *
      * @return {boolean}
      */
-
     return function () {
         return parent === self.parent;
     };
 });
 
-/**
+/*
  * `insertinside` event condition.
  */
 
@@ -657,7 +650,7 @@ invokeEvent.insertinside = invokeEvent(function (node) {
     };
 });
 
-/**
+/*
  * `removeinside` event condition.
  */
 
@@ -667,7 +660,7 @@ invokeEvent.removeinside = invokeEvent(function (node, previousParent) {
     };
 });
 
-/**
+/*
  * Default conditional (always returns `true`).
  */
 
@@ -686,8 +679,8 @@ invokeAll = invokeEvent(function () {
  * @param {Parent} parent
  * @param {Child} child
  * @return {boolean}
+ * @private
  */
-
 function canInsertIntoParent(parent, child) {
     var allowed;
 
@@ -705,11 +698,11 @@ function canInsertIntoParent(parent, child) {
  * `parent`s head when `start` is not given.
  *
  * @param {Parent} parent
- * @param {Child} start
+ * @param {Child?} start
  * @param {Array.<Child>} children
  * @return {Array.<Child>} `children`.
+ * @private
  */
-
 function insertAll(parent, start, children) {
     var index,
         length,
@@ -732,7 +725,7 @@ function insertAll(parent, start, children) {
         );
     }
 
-    /**
+    /*
      * Exit early.
      */
 
@@ -761,7 +754,7 @@ function insertAll(parent, start, children) {
         }
     }
 
-    /**
+    /*
      * Remove `children` from their parents.
      */
 
@@ -784,14 +777,14 @@ function insertAll(parent, start, children) {
             );
         }
 
-        /**
+        /*
          * Detach `child`.
          */
 
         child.remove();
     }
 
-    /**
+    /*
      * Clean start and end after removal.
      */
 
@@ -803,7 +796,7 @@ function insertAll(parent, start, children) {
         indice = -1;
     }
 
-    /**
+    /*
      * Insert `children`.
      */
 
@@ -814,13 +807,13 @@ function insertAll(parent, start, children) {
     while (children[++index]) {
         child = children[index];
 
-        /**
+        /*
          * Set `child`s parent to parent.
          */
 
         child.parent = parent;
 
-        /**
+        /*
          * Set `child`s prev node to `prev` and
          * `prev`s next node to `child`.
          */
@@ -831,14 +824,14 @@ function insertAll(parent, start, children) {
             prev.next = child;
         }
 
-        /**
+        /*
          * Prepare for the next iteration.
          */
 
         prev = child;
     }
 
-    /**
+    /*
      * Set the `child`s next node to `end`.
      */
 
@@ -847,7 +840,7 @@ function insertAll(parent, start, children) {
         end.prev = prev;
     }
 
-    /**
+    /*
      * Update `head` and `tail`.
      */
 
@@ -861,7 +854,7 @@ function insertAll(parent, start, children) {
         parent.tail = prev;
     }
 
-    /**
+    /*
      * Update array-like representation.
      *
      * The linked-list representation is valid, but
@@ -879,7 +872,7 @@ function insertAll(parent, start, children) {
 
     parent.length += children.length;
 
-    /**
+    /*
      * Emit events.
      */
 
@@ -888,6 +881,14 @@ function insertAll(parent, start, children) {
     while (children[++index]) {
         children[index].trigger('insert', parent);
     }
+
+    /*
+     * Emit a single `change` event.
+     * This will also trigger `changeinside` events on
+     * `parent` and its constructors.
+     */
+
+    parent.trigger('change', parent);
 
     return children;
 }
@@ -900,8 +901,8 @@ function insertAll(parent, start, children) {
  * @param {Child} item
  * @param {Child} child
  * @return {Child} `child`.
+ * @private
  */
-
 function insert(parent, item, child) {
     var next,
         indice;
@@ -941,7 +942,7 @@ function insert(parent, item, child) {
         );
     }
 
-    /**
+    /*
      * Exit early.
      */
 
@@ -949,13 +950,13 @@ function insert(parent, item, child) {
         return child;
     }
 
-    /**
+    /*
      * Detach `child`.
      */
 
     child.remove();
 
-    /**
+    /*
      * Set `child`s parent to parent.
      */
 
@@ -987,7 +988,7 @@ function insert(parent, item, child) {
     }
 
     if (item || next) {
-        /**
+        /*
          * If `item` has a next node, link `child`s next
          * node, to `item`s next node, and link the next
          * nodes previous node to `child`.
@@ -998,7 +999,7 @@ function insert(parent, item, child) {
             next.prev = child;
         }
 
-        /**
+        /*
          * Set `child`s previous node to `item`, and set
          * the next node of `item` to `child`.
          */
@@ -1018,14 +1019,14 @@ function insert(parent, item, child) {
             }
         }
 
-        /**
+        /*
          * If the parent has no last node or if `item` is
          * `parent`s last node.
          */
 
         arrayLikeMove(parent, child, indice + 1);
     } else {
-        /**
+        /*
          * Prepend the node: There is no `head`, nor
          * `tail` node yet.
          *
@@ -1037,11 +1038,19 @@ function insert(parent, item, child) {
         parent.length = 1;
     }
 
-    /**
+    /*
      * Emit events.
      */
 
     child.trigger('insert', parent);
+
+    /*
+     * Emit a single `change` event.
+     * This will also trigger `changeinside` events on
+     * `parent` and its constructors.
+     */
+
+    parent.trigger('change', parent);
 
     return child;
 }
@@ -1051,8 +1060,8 @@ function insert(parent, item, child) {
  *
  * @param {Child} node
  * @return {Child} - `node`.
+ * @private
  */
-
 function remove(node) {
     var parent,
         prev,
@@ -1066,7 +1075,7 @@ function remove(node) {
         );
     }
 
-    /**
+    /*
      * Exit early when the node is already detached.
      */
 
@@ -1079,7 +1088,7 @@ function remove(node) {
     prev = node.prev;
     next = node.next;
 
-    /**
+    /*
      * If `node` is its parent's tail, link the
      * tail to `node`s previous item.
      */
@@ -1088,7 +1097,7 @@ function remove(node) {
         parent.tail = prev;
     }
 
-    /**
+    /*
      * If `node` is its parent's head, link the
      * head to `node`s next item.
      */
@@ -1097,7 +1106,7 @@ function remove(node) {
         parent.head = next;
     }
 
-    /**
+    /*
      * If node was its parent's only child,
      * remove the `tail` we just added.
      */
@@ -1106,7 +1115,7 @@ function remove(node) {
         parent.tail = null;
     }
 
-    /**
+    /*
      * If a previous item exists, link its next item to
      * `node`s next item.
      */
@@ -1115,7 +1124,7 @@ function remove(node) {
         prev.next = next;
     }
 
-    /**
+    /*
      * If a next item exists, link its previous item to
      * `node`s previous item.
      */
@@ -1136,7 +1145,7 @@ function remove(node) {
 
     arrayLikeRemove(parent, indice);
 
-    /**
+    /*
      * Remove links from `node` to both its next and
      * previous items, and its parent.
      */
@@ -1145,11 +1154,19 @@ function remove(node) {
     node.next = null;
     node.parent = null;
 
-    /**
+    /*
      * Emit events.
      */
 
     node.trigger('remove', parent, parent);
+
+    /*
+     * Emit a single `change` event.
+     * This will also trigger `changeinside` events on
+     * `parent` and its constructors.
+     */
+
+    parent.trigger('change', parent);
 
     return node;
 }
@@ -1159,9 +1176,9 @@ function remove(node) {
  *
  * @param {number} position
  * @param {number} length
- * @param {number} position - Normalised position.
+ * @return {number} - Normalised position.
+ * @private
  */
-
 function validateSplitPosition(position, length) {
     if (
         position === null ||
@@ -1184,7 +1201,14 @@ function validateSplitPosition(position, length) {
     return position;
 }
 
-function mergeData(node, nlcst) {
+/**
+ * Add data in a TextOM node to an NLCST node.
+ *
+ * @param {Node} node
+ * @param {NLCSTNode} nlcst
+ * @private
+ */
+function dataToJSON(node, nlcst) {
     var data,
         attribute;
 
@@ -1192,7 +1216,7 @@ function mergeData(node, nlcst) {
 
     for (attribute in data) {
         if (has.call(data, attribute)) {
-            /**
+            /*
              * This makes sure no empty data objects
              * are created.
              */
@@ -1206,6 +1230,99 @@ function mergeData(node, nlcst) {
     }
 }
 
+/**
+ * Inherit Super's prototype into a `Constructor`.
+ *
+ * Such as `Node` is implemented by `Parent`, `Parent`
+ * is implemented by `RootNode`, etc.
+ *
+ * @param {Function} Constructor
+ * @this {Function} - Super.
+ * @private
+ */
+function isImplementedBy(Constructor) {
+    var self,
+        constructors,
+        constructorPrototype,
+        key,
+        newPrototype;
+
+    self = this;
+
+    constructors = [Constructor].concat(self.constructors || [self]);
+
+    constructorPrototype = Constructor.prototype;
+
+    /**
+     * Construct a new prototype.
+     */
+    function AltConstructor () {}
+
+    AltConstructor.prototype = self.prototype;
+
+    newPrototype = new AltConstructor();
+
+    for (key in constructorPrototype) {
+        /*
+         * Note: Code climate, and probably other
+         * linters, will fail here. Thats okay,
+         * they're wrong.
+         */
+
+        newPrototype[key] = constructorPrototype[key];
+    }
+
+    /*
+     * Some browser do not enumerate custom
+     * `toString` methods, `Node.isImplementedBy`
+     * does cater for `toString`, but not others
+     * (`valueOf` and such).
+     */
+
+    if (constructorPrototype.toString !== {}.toString) {
+        newPrototype.toString = constructorPrototype.toString;
+    }
+
+    if (constructorPrototype.valueOf !== {}.valueOf) {
+        newPrototype.valueOf = constructorPrototype.valueOf;
+    }
+
+    /*
+     * Copy properties and methods on the Super (not
+     * its prototype) over to the given `Constructor`.
+     */
+
+    for (key in self) {
+        if (has.call(self, key)) {
+            Constructor[key] = self[key];
+        }
+    }
+
+    /*
+     * Enable nicely displayed `> Node` instead of
+     * `> Object` in some browser consoles.
+     */
+
+    newPrototype.constructor = Constructor;
+
+    /*
+     * Store all constructor function.
+     */
+
+    Constructor.constructors = constructors;
+
+    /*
+     * Set the new prototype.
+     */
+
+    Constructor.prototype = newPrototype;
+}
+
+/**
+ * Construct a new TextOM namespace.
+ *
+ * @return {TextOM}
+ */
 function TextOMConstructor() {
     var nodePrototype,
         parentPrototype,
@@ -1216,9 +1333,8 @@ function TextOMConstructor() {
     /**
      * Define `Node`.
      *
-     * @constructor
+     * @constructor Node
      */
-
     function Node() {
         if (!this.data) {
             this.data = {};
@@ -1232,19 +1348,18 @@ function TextOMConstructor() {
      *
      * @readonly
      * @static
+     * @memberof Node#
      */
-
     nodePrototype.nodeName = NODE;
 
     /**
      * Listen to an event.
      *
      * @param {string} name
-     * @param {function(...[*])} handler
+     * @param {function(...*)} handler
      * @this {Node|Function}
-     * @return self
+     * @return {Node|Function}
      */
-
     nodePrototype.on = Node.on = function (name, handler) {
         var self,
             handlers;
@@ -1295,9 +1410,8 @@ function TextOMConstructor() {
      * @param {string?} name
      * @param {function(...[*])?} handler
      * @this {Node|Function}
-     * @return self
+     * @return {Node|Function}
      */
-
     nodePrototype.off = Node.off = function (name, handler) {
         var self,
             handlers,
@@ -1363,13 +1477,12 @@ function TextOMConstructor() {
 
     /**
      * Emit an event.
+     * Passes all other arguments to the handlers.
      *
      * @param {string} name
-     * @param {...*} parameters
      * @this {Node}
-     * @return self
+     * @return {Node|boolean}
      */
-
     nodePrototype.emit = function (name) {
         var self,
             parameters,
@@ -1416,14 +1529,13 @@ function TextOMConstructor() {
 
     /**
      * Emit an event, and trigger a bubbling event on context.
+     * Passes all other arguments to the handlers.
      *
      * @param {string} name
      * @param {Node} context
-     * @param {...*} parameters
      * @this {Node}
-     * @return self
+     * @return {Node|boolean}
      */
-
     nodePrototype.trigger = function (name, context) {
         var self,
             node,
@@ -1434,7 +1546,7 @@ function TextOMConstructor() {
 
         parameters = arraySlice.call(arguments, 2);
 
-        /**
+        /*
          * Emit the event, exit with an error if it's canceled.
          */
 
@@ -1442,7 +1554,7 @@ function TextOMConstructor() {
             return false;
         }
 
-        /**
+        /*
          * Exit if no context exists.
          */
 
@@ -1450,7 +1562,7 @@ function TextOMConstructor() {
             return true;
         }
 
-        /**
+        /*
          * Start firing bubbling events.
          */
 
@@ -1477,97 +1589,18 @@ function TextOMConstructor() {
         return true;
     };
 
-    /**
-     * Inherit Super's prototype into a `Constructor`.
-     *
-     * Such as `Node` is implemented by `Parent`, `Parent`
-     * is implemented by `RootNode`, etc.
-     *
-     * @param {Function} Constructor
-     * @this {Function} - Super.
+    /*
+     * Expose `isImplementedBy` on Node.
      */
 
-    Node.isImplementedBy = function (Constructor) {
-        var self,
-            constructors,
-            constructorPrototype,
-            key,
-            newPrototype;
-
-        self = this;
-
-        constructors = [Constructor].concat(self.constructors || [self]);
-
-        constructorPrototype = Constructor.prototype;
-
-        function AltConstructor () {}
-
-        AltConstructor.prototype = self.prototype;
-
-        newPrototype = new AltConstructor();
-
-        for (key in constructorPrototype) {
-            /**
-             * Note: Code climate, and probably other
-             * linters, will fail here. Thats okay,
-             * they're wrong.
-             */
-
-            newPrototype[key] = constructorPrototype[key];
-        }
-
-        /**
-         * Some browser do not enumerate custom
-         * `toString` methods, `Node.isImplementedBy`
-         * does cater for `toString`, but not others
-         * (`valueOf` and such).
-         */
-
-        if (constructorPrototype.toString !== {}.toString) {
-            newPrototype.toString = constructorPrototype.toString;
-        }
-
-        if (constructorPrototype.valueOf !== {}.valueOf) {
-            newPrototype.valueOf = constructorPrototype.valueOf;
-        }
-
-        /**
-         * Copy properties and methods on the Super (not
-         * its prototype) over to the given `Constructor`.
-         */
-
-        for (key in self) {
-            if (has.call(self, key)) {
-                Constructor[key] = self[key];
-            }
-        }
-
-        /**
-         * Enable nicely displayed `> Node` instead of
-         * `> Object` in some browser consoles.
-         */
-
-        newPrototype.constructor = Constructor;
-
-        /**
-         * Store all constructor function.
-         */
-
-        Constructor.constructors = constructors;
-
-        /**
-         * Set the new prototype.
-         */
-
-        Constructor.prototype = newPrototype;
-    };
+    Node.isImplementedBy = isImplementedBy;
 
     /**
      * Define `Parent`.
      *
-     * @constructor
+     * @constructor Parent
+     * @extends {Node}
      */
-
     function Parent() {
         Node.apply(this, arguments);
     }
@@ -1580,7 +1613,6 @@ function TextOMConstructor() {
      * @readonly
      * @static
      */
-
     parentPrototype.nodeName = PARENT;
 
     /**
@@ -1589,7 +1621,6 @@ function TextOMConstructor() {
      * @type {Child?}
      * @readonly
      */
-
     parentPrototype.head = null;
 
     /**
@@ -1599,7 +1630,6 @@ function TextOMConstructor() {
      * @type {Child?}
      * @readonly
      */
-
     parentPrototype.tail = null;
 
     /**
@@ -1608,7 +1638,6 @@ function TextOMConstructor() {
      * @type {number}
      * @readonly
      */
-
     parentPrototype.length = 0;
 
     /**
@@ -1618,7 +1647,6 @@ function TextOMConstructor() {
      *   head.
      * @return {self}
      */
-
     parentPrototype.prepend = function (child) {
         return insert(this, null, child);
     };
@@ -1630,7 +1658,6 @@ function TextOMConstructor() {
      *   insert at the start.
      * @return {self}
      */
-
     parentPrototype.prependAll = function (children) {
         return insertAll(this, null, children);
     };
@@ -1642,7 +1669,6 @@ function TextOMConstructor() {
      *   tail.
      * @return {self}
      */
-
     parentPrototype.append = function (child) {
         return insert(this, this.tail || this.head, child);
     };
@@ -1654,7 +1680,6 @@ function TextOMConstructor() {
      *   insert at the end.
      * @return {self}
      */
-
     parentPrototype.appendAll = function (children) {
         return insertAll(this, this.tail || this.head, children);
     };
@@ -1665,7 +1690,6 @@ function TextOMConstructor() {
      * @param {number?} [index=0] - Position of `child`;
      * @return {Child?}
      */
-
     parentPrototype.item = function (index) {
         if (index === null || index === undefined) {
             index = 0;
@@ -1686,7 +1710,6 @@ function TextOMConstructor() {
      * @this {Parent}
      * @return {string}
      */
-
     parentPrototype.toString = function () {
         return arrayJoin.call(this, '');
     };
@@ -1697,7 +1720,6 @@ function TextOMConstructor() {
      * @this {Parent}
      * @return {NLCSTNode}
      */
-
     parentPrototype.valueOf = function () {
         var self,
             index,
@@ -1719,12 +1741,12 @@ function TextOMConstructor() {
             children[index] = self[index].valueOf();
         }
 
-        mergeData(self, nlcst);
+        dataToJSON(self, nlcst);
 
         return nlcst;
     };
 
-    /**
+    /*
      * Inherit from `Node.prototype`.
      */
 
@@ -1733,16 +1755,16 @@ function TextOMConstructor() {
     /**
      * Define `Child`.
      *
-     * @constructor
+     * @constructor Child
+     * @extends {Node}
      */
-
     function Child() {
         Node.apply(this, arguments);
     }
 
     childPrototype = Child.prototype;
 
-    /**
+    /*
      * Expose the node name of `Child`.
      *
      * @readonly
@@ -1751,7 +1773,7 @@ function TextOMConstructor() {
 
     childPrototype.nodeName = CHILD;
 
-    /**
+    /*
      * Parent or `null`.
      *
      * @type {Parent?}
@@ -1760,7 +1782,7 @@ function TextOMConstructor() {
 
     childPrototype.parent = null;
 
-    /**
+    /*
      * The next node, `null` otherwise (when `child` is
      * its parent's tail or detached).
      *
@@ -1770,7 +1792,7 @@ function TextOMConstructor() {
 
     childPrototype.next = null;
 
-    /**
+    /*
      * The previous node, `null` otherwise (when `child` is
      * its parent's head or detached).
      *
@@ -1787,7 +1809,6 @@ function TextOMConstructor() {
      * @this {Child}
      * @return {self}
      */
-
     childPrototype.before = function (child) {
         return insert(this.parent, this.prev, child);
     };
@@ -1800,7 +1821,6 @@ function TextOMConstructor() {
      * @this {Child}
      * @return {self}
      */
-
     childPrototype.beforeAll = function (children) {
         return insertAll(this.parent, this.prev, children);
     };
@@ -1812,7 +1832,6 @@ function TextOMConstructor() {
      * @this {Child}
      * @return {self}
      */
-
     childPrototype.after = function (child) {
         return insert(this.parent, this, child);
     };
@@ -1825,7 +1844,6 @@ function TextOMConstructor() {
      * @this {Child}
      * @return {self}
      */
-
     childPrototype.afterAll = function (children) {
         return insertAll(this.parent, this, children);
     };
@@ -1837,7 +1855,6 @@ function TextOMConstructor() {
      * @this {Child}
      * @return {self}
      */
-
     childPrototype.replace = function (child) {
         var result;
 
@@ -1854,12 +1871,11 @@ function TextOMConstructor() {
      * @this {Child}
      * @return {self}
      */
-
     childPrototype.remove = function () {
         return remove(this);
     };
 
-    /**
+    /*
      * Inherit from `Node.prototype`.
      */
 
@@ -1868,15 +1884,16 @@ function TextOMConstructor() {
     /**
      * Define `Element`.
      *
-     * @constructor
+     * @constructor Element
+     * @extends {Parent}
+     * @extends {Child}
      */
-
     function Element() {
         Parent.apply(this, arguments);
         Child.apply(this, arguments);
     }
 
-    /**
+    /*
      * Inherit from `Parent.prototype` and
      * `Child.prototype`.
      */
@@ -1895,7 +1912,6 @@ function TextOMConstructor() {
      * @this {Parent}
      * @return {self}
      */
-
     Element.prototype.split = function (position) {
         var self,
             cloneNode,
@@ -1911,7 +1927,7 @@ function TextOMConstructor() {
 
         index = -1;
 
-        /**
+        /*
          * Move the children of `self` to the clone,
          * from `0` to `position`. Looks a bit weird,
          * but when a node is appended, it's also
@@ -1925,7 +1941,7 @@ function TextOMConstructor() {
         return cloneNode;
     };
 
-    /**
+    /*
      * Add Parent as a constructor (which it is)
      */
 
@@ -1937,15 +1953,15 @@ function TextOMConstructor() {
      * @readonly
      * @static
      */
-
     Element.prototype.nodeName = ELEMENT;
 
     /**
      * Define `Text`.
      *
-     * @constructor
+     * @param {string?} value
+     * @constructor Text
+     * @extends {Child}
      */
-
     function Text(value) {
         Child.apply(this, arguments);
 
@@ -1954,7 +1970,7 @@ function TextOMConstructor() {
 
     textPrototype = Text.prototype;
 
-    /**
+    /*
      * Expose the node name of `Text`.
      *
      * @readonly
@@ -1963,7 +1979,7 @@ function TextOMConstructor() {
 
     textPrototype.nodeName = TEXT;
 
-    /**
+    /*
      * Default value.
      */
 
@@ -1975,7 +1991,6 @@ function TextOMConstructor() {
      * @this {Text}
      * @return {string}
      */
-
     textPrototype.toString = function () {
         return this.internalValue;
     };
@@ -1986,7 +2001,6 @@ function TextOMConstructor() {
      * @this {Text}
      * @return {NLCSTNode}
      */
-
     textPrototype.valueOf = function () {
         var self,
             nlcst;
@@ -1998,7 +2012,7 @@ function TextOMConstructor() {
             'value': self.internalValue
         };
 
-        mergeData(self, nlcst);
+        dataToJSON(self, nlcst);
 
         return nlcst;
     };
@@ -2011,10 +2025,10 @@ function TextOMConstructor() {
      * @this {Text}
      * @return {string}
      */
-
     textPrototype.fromString = function (value) {
         var self,
-            current;
+            current,
+            parent;
 
         self = this;
 
@@ -2027,9 +2041,21 @@ function TextOMConstructor() {
         current = self.toString();
 
         if (value !== current) {
+            parent = self.parent;
+
             self.internalValue = value;
 
-            self.trigger('changetext', self.parent, value, current);
+            self.trigger('changetext', parent, value, current);
+
+            /*
+             * Emit a single `change` event.
+             * This will also trigger `changeinside` events on
+             * `parent` and its constructors.
+             */
+
+            if (parent) {
+                parent.trigger('change', parent);
+            }
         }
 
         return value;
@@ -2046,7 +2072,6 @@ function TextOMConstructor() {
      * @this {Text}
      * @return {self}
      */
-
     textPrototype.split = function (position) {
         var self,
             value,
@@ -2067,7 +2092,7 @@ function TextOMConstructor() {
         return cloneNode;
     };
 
-    /**
+    /*
      * Inherit from `Child.prototype`.
      */
 
@@ -2076,9 +2101,9 @@ function TextOMConstructor() {
     /**
      * Define `RootNode`.
      *
-     * @constructor
+     * @constructor RootNode
+     * @extends {Parent}
      */
-
     function RootNode() {
         Parent.apply(this, arguments);
     }
@@ -2089,7 +2114,6 @@ function TextOMConstructor() {
      * @readonly
      * @static
      */
-
     RootNode.prototype.type = ROOT_NODE;
 
     /**
@@ -2097,14 +2121,13 @@ function TextOMConstructor() {
      *
      * @readonly
      */
-
     RootNode.prototype.allowedChildTypes = [
         PARAGRAPH_NODE,
         WHITE_SPACE_NODE,
         SOURCE_NODE
     ];
 
-    /**
+    /*
      * Inherit from `Parent.prototype`.
      */
 
@@ -2113,9 +2136,9 @@ function TextOMConstructor() {
     /**
      * Define `ParagraphNode`.
      *
-     * @constructor
+     * @constructor ParagraphNode
+     * @extends {Element}
      */
-
     function ParagraphNode() {
         Element.apply(this, arguments);
     }
@@ -2126,7 +2149,6 @@ function TextOMConstructor() {
      * @readonly
      * @static
      */
-
     ParagraphNode.prototype.type = PARAGRAPH_NODE;
 
     /**
@@ -2134,14 +2156,13 @@ function TextOMConstructor() {
      *
      * @readonly
      */
-
     ParagraphNode.prototype.allowedChildTypes = [
         SENTENCE_NODE,
         WHITE_SPACE_NODE,
         SOURCE_NODE
     ];
 
-    /**
+    /*
      * Inherit from `Parent.prototype` and `Child.prototype`.
      */
 
@@ -2150,9 +2171,9 @@ function TextOMConstructor() {
     /**
      * Define `SentenceNode`.
      *
-     * @constructor
+     * @constructor SentenceNode
+     * @extends {Element}
      */
-
     function SentenceNode() {
         Element.apply(this, arguments);
     }
@@ -2163,7 +2184,6 @@ function TextOMConstructor() {
      * @readonly
      * @static
      */
-
     SentenceNode.prototype.type = SENTENCE_NODE;
 
     /**
@@ -2171,7 +2191,6 @@ function TextOMConstructor() {
      *
      * @readonly
      */
-
     SentenceNode.prototype.allowedChildTypes = [
         WORD_NODE,
         SYMBOL_NODE,
@@ -2180,7 +2199,7 @@ function TextOMConstructor() {
         SOURCE_NODE
     ];
 
-    /**
+    /*
      * Inherit from `Parent.prototype` and `Child.prototype`.
      */
 
@@ -2188,8 +2207,10 @@ function TextOMConstructor() {
 
     /**
      * Define `WordNode`.
+     *
+     * @constructor WordNode
+     * @extends {Element}
      */
-
     function WordNode() {
         Element.apply(this, arguments);
     }
@@ -2200,7 +2221,6 @@ function TextOMConstructor() {
      * @readonly
      * @static
      */
-
     WordNode.prototype.type = WORD_NODE;
 
     /**
@@ -2208,14 +2228,13 @@ function TextOMConstructor() {
      *
      * @readonly
      */
-
     WordNode.prototype.allowedChildTypes = [
         TEXT_NODE,
         SYMBOL_NODE,
         PUNCTUATION_NODE
     ];
 
-    /**
+    /*
      * Inherit from `Text.prototype`.
      */
 
@@ -2223,8 +2242,10 @@ function TextOMConstructor() {
 
     /**
      * Define `SymbolNode`.
+     *
+     * @constructor SymbolNode
+     * @extends {Text}
      */
-
     function SymbolNode() {
         Text.apply(this, arguments);
     }
@@ -2235,10 +2256,9 @@ function TextOMConstructor() {
      * @readonly
      * @static
      */
-
     SymbolNode.prototype.type = SYMBOL_NODE;
 
-    /**
+    /*
      * Inherit from `SymbolNode.prototype`.
      */
 
@@ -2246,8 +2266,10 @@ function TextOMConstructor() {
 
     /**
      * Define `PunctuationNode`.
+     *
+     * @constructor PunctuationNode
+     * @extends {Text}
      */
-
     function PunctuationNode() {
         SymbolNode.apply(this, arguments);
     }
@@ -2258,10 +2280,9 @@ function TextOMConstructor() {
      * @readonly
      * @static
      */
-
     PunctuationNode.prototype.type = PUNCTUATION_NODE;
 
-    /**
+    /*
      * Inherit from `SymbolNode.prototype`.
      */
 
@@ -2269,8 +2290,10 @@ function TextOMConstructor() {
 
     /**
      * Expose `WhiteSpaceNode`.
+     *
+     * @constructor WhiteSpaceNode
+     * @extends {Text}
      */
-
     function WhiteSpaceNode() {
         SymbolNode.apply(this, arguments);
     }
@@ -2281,19 +2304,19 @@ function TextOMConstructor() {
      * @readonly
      * @static
      */
-
     WhiteSpaceNode.prototype.type = WHITE_SPACE_NODE;
 
     /**
      * Inherit from `SymbolNode.prototype`.
      */
-
     SymbolNode.isImplementedBy(WhiteSpaceNode);
 
-    /**
+    /***
      * Expose `SourceNode`.
+     *
+     * @constructor SourceNode
+     * @extends {Text}
      */
-
     function SourceNode() {
         Text.apply(this, arguments);
     }
@@ -2304,10 +2327,9 @@ function TextOMConstructor() {
      * @readonly
      * @static
      */
-
     SourceNode.prototype.type = SOURCE_NODE;
 
-    /**
+    /*
      * Inherit from `Text.prototype`.
      */
 
@@ -2315,8 +2337,10 @@ function TextOMConstructor() {
 
     /**
      * Expose `TextNode`.
+     *
+     * @constructor TextNode
+     * @extends {Text}
      */
-
     function TextNode() {
         Text.apply(this, arguments);
     }
@@ -2327,10 +2351,9 @@ function TextOMConstructor() {
      * @readonly
      * @static
      */
-
     TextNode.prototype.type = TEXT_NODE;
 
-    /**
+    /*
      * Inherit from `Text.prototype`.
      */
 
@@ -2338,17 +2361,12 @@ function TextOMConstructor() {
 
     /**
      * Define the `TextOM` object.
+     *
+     * @namespace TextOM
      */
-
     TextOM = {};
 
-    /**
-     * Expose `TextOM` on every `Node`.
-     */
-
-    nodePrototype.TextOM = TextOM;
-
-    /**
+    /*
      * Expose all node names on `TextOM`.
      */
 
@@ -2358,45 +2376,7 @@ function TextOMConstructor() {
     TextOM.ELEMENT = ELEMENT;
     TextOM.TEXT = TEXT;
 
-    /**
-     * Expose all node names on every `Node`.
-     */
-
-    nodePrototype.NODE = NODE;
-    nodePrototype.PARENT = PARENT;
-    nodePrototype.CHILD = CHILD;
-    nodePrototype.ELEMENT = ELEMENT;
-    nodePrototype.TEXT = TEXT;
-
-    /**
-     * Expose all node types on `TextOM`.
-     */
-
-    TextOM.ROOT_NODE = ROOT_NODE;
-    TextOM.PARAGRAPH_NODE = PARAGRAPH_NODE;
-    TextOM.SENTENCE_NODE = SENTENCE_NODE;
-    TextOM.WORD_NODE = WORD_NODE;
-    TextOM.SYMBOL_NODE = SYMBOL_NODE;
-    TextOM.PUNCTUATION_NODE = PUNCTUATION_NODE;
-    TextOM.WHITE_SPACE_NODE = WHITE_SPACE_NODE;
-    TextOM.SOURCE_NODE = SOURCE_NODE;
-    TextOM.TEXT_NODE = TEXT_NODE;
-
-    /**
-     * Expose all node types on every `Node`.
-     */
-
-    nodePrototype.ROOT_NODE = ROOT_NODE;
-    nodePrototype.PARAGRAPH_NODE = PARAGRAPH_NODE;
-    nodePrototype.SENTENCE_NODE = SENTENCE_NODE;
-    nodePrototype.WORD_NODE = WORD_NODE;
-    nodePrototype.SYMBOL_NODE = SYMBOL_NODE;
-    nodePrototype.PUNCTUATION_NODE = PUNCTUATION_NODE;
-    nodePrototype.WHITE_SPACE_NODE = WHITE_SPACE_NODE;
-    nodePrototype.SOURCE_NODE = SOURCE_NODE;
-    nodePrototype.TEXT_NODE = TEXT_NODE;
-
-    /**
+    /*
      * Expose all different `Node`s on `TextOM`.
      */
 
@@ -2415,14 +2395,58 @@ function TextOMConstructor() {
     TextOM.SourceNode = SourceNode;
     TextOM.TextNode = TextNode;
 
-    /**
+    /*
+     * Expose all node types on `TextOM`.
+     */
+
+    TextOM.ROOT_NODE = ROOT_NODE;
+    TextOM.PARAGRAPH_NODE = PARAGRAPH_NODE;
+    TextOM.SENTENCE_NODE = SENTENCE_NODE;
+    TextOM.WORD_NODE = WORD_NODE;
+    TextOM.SYMBOL_NODE = SYMBOL_NODE;
+    TextOM.PUNCTUATION_NODE = PUNCTUATION_NODE;
+    TextOM.WHITE_SPACE_NODE = WHITE_SPACE_NODE;
+    TextOM.SOURCE_NODE = SOURCE_NODE;
+    TextOM.TEXT_NODE = TEXT_NODE;
+
+    /*
+     * Expose `TextOM` on every `Node`.
+     */
+
+    nodePrototype.TextOM = TextOM;
+
+    /*
+     * Expose all node names on every `Node`.
+     */
+
+    nodePrototype.NODE = NODE;
+    nodePrototype.PARENT = PARENT;
+    nodePrototype.CHILD = CHILD;
+    nodePrototype.ELEMENT = ELEMENT;
+    nodePrototype.TEXT = TEXT;
+
+    /*
+     * Expose all node types on every `Node`.
+     */
+
+    nodePrototype.ROOT_NODE = ROOT_NODE;
+    nodePrototype.PARAGRAPH_NODE = PARAGRAPH_NODE;
+    nodePrototype.SENTENCE_NODE = SENTENCE_NODE;
+    nodePrototype.WORD_NODE = WORD_NODE;
+    nodePrototype.SYMBOL_NODE = SYMBOL_NODE;
+    nodePrototype.PUNCTUATION_NODE = PUNCTUATION_NODE;
+    nodePrototype.WHITE_SPACE_NODE = WHITE_SPACE_NODE;
+    nodePrototype.SOURCE_NODE = SOURCE_NODE;
+    nodePrototype.TEXT_NODE = TEXT_NODE;
+
+    /*
      * Expose `TextOM`.
      */
 
     return TextOM;
 }
 
-/**
+/*
  * Expose `TextOMConstructor`.
  */
 
@@ -3113,7 +3137,6 @@ module.exports = tokenizerFactory;
  * @param {NLCSTNode} nlcst
  * @return {string}
  */
-
 function nlcstToString(nlcst) {
     var values,
         length,
@@ -3142,6 +3165,10 @@ function nlcstToString(nlcst) {
 
     return values.join('');
 }
+
+/*
+ * Expose `nlcstToString`.
+ */
 
 module.exports = nlcstToString;
 
@@ -4645,9 +4672,8 @@ Ware.prototype.run = function () {
  * Module Dependencies
  */
 
-var slice = [].slice;
-var co = require('co');
 var noop = function(){};
+var co = require('co');
 
 /**
  * Export `wrap-fn`
@@ -4666,10 +4692,15 @@ module.exports = wrap;
  */
 
 function wrap(fn, done) {
-  done = done || noop;
+  done = once(done || noop);
 
   return function() {
-    var args = slice.call(arguments);
+    // prevents arguments leakage
+    // see https://github.com/petkaantonov/bluebird/wiki/Optimization-killers#3-managing-arguments
+    var i = arguments.length;
+    var args = new Array(i);
+    while (i--) args[i] = arguments[i];
+
     var ctx = this;
 
     // done
@@ -4679,7 +4710,12 @@ function wrap(fn, done) {
 
     // async
     if (fn.length > args.length) {
-      return fn.apply(ctx, args.concat(done));
+      // NOTE: this only handles uncaught synchronous errors
+      try {
+        return fn.apply(ctx, args.concat(done));
+      } catch (e) {
+        return done(e);
+      }
     }
 
     // generator
@@ -4744,6 +4780,18 @@ function generator(value) {
 
 function promise(value) {
   return value && 'function' == typeof value.then;
+}
+
+/**
+ * Once
+ */
+
+function once(fn) {
+  return function() {
+    var ret = fn.apply(this, arguments);
+    fn = noop;
+    return ret;
+  };
 }
 
 }, {"co":33}],
@@ -5047,7 +5095,7 @@ function error(err) {
 3: [function(require, module, exports) {
 'use strict';
 
-/**
+/*
  * Dependencies.
  */
 
@@ -5067,7 +5115,6 @@ visit = require('retext-visit');
  * @param {{1: number}} a
  * @param {{1: number}} b
  */
-
 function sort(a, b) {
     return a[1] - b[1];
 }
@@ -5083,7 +5130,6 @@ function sort(a, b) {
  *   array containing language--distance tupples,
  *   sorted by count (low to high).
  */
-
 function sortDistanceObject(dictionary) {
     var distances,
         distance;
@@ -5104,7 +5150,6 @@ function sortDistanceObject(dictionary) {
  * @param {Node} node
  * @param {Array.<Array.<string, number>>} languages
  */
-
 function setLanguages(node, languages) {
     var primaryLanguage;
 
@@ -5119,7 +5164,6 @@ function setLanguages(node, languages) {
  *
  * @param {Parent} parent
  */
-
 function onchangeinparent(parent) {
     var node,
         dictionary,
@@ -5160,8 +5204,7 @@ function onchangeinparent(parent) {
  *
  * @this {SentenceNode}
  */
-
-function onchange() {
+function onchangeinside() {
     var self;
 
     self = this;
@@ -5172,23 +5215,17 @@ function onchange() {
 }
 
 /**
- * Define `attach`.
+ * Define `language`.
  *
  * @param {Retext} retext
+ * @return {function(Node)}
  */
-
 function language(retext) {
-    var SentenceNode;
-
     retext.use(visit);
 
-    SentenceNode = retext.TextOM.SentenceNode;
+    retext.TextOM.SentenceNode.on('changeinside', onchangeinside);
 
-    SentenceNode.on('changetextinside', onchange);
-    SentenceNode.on('removeinside', onchange);
-    SentenceNode.on('insertinside', onchange);
-
-    /**
+    /*
      * Define `onrun`.
      *
      * @param {Node} tree
@@ -5199,7 +5236,7 @@ function language(retext) {
     };
 }
 
-/**
+/*
  * Expose `language`.
  */
 
@@ -5219,27 +5256,27 @@ var data,
     utilities,
     expressions;
 
-/**
+/*
  * Load `trigram-utils`.
  */
 
 utilities = require('trigram-utils');
 
-/**
+/*
  * Load `expressions` (regular expressions matching
  * scripts).
  */
 
 expressions = require('./expressions.js');
 
-/**
+/*
  * Load `data` (trigram information per language,
  * per script).
  */
 
 data = require('./data.json');
 
-/**
+/*
  * Construct trigram dictionaries.
  */
 
@@ -5274,19 +5311,19 @@ var MAX_LENGTH,
     MIN_LENGTH,
     MAX_DIFFERENCE;
 
-/**
+/*
  * Maximum sample length.
  */
 
 MAX_LENGTH = 2048;
 
-/**
+/*
  * Minimum sample length.
  */
 
 MIN_LENGTH = 10;
 
-/**
+/*
  * The maximum distance to add when a given trigram does
  * not exist in a trigram dictionary.
  */
@@ -5303,7 +5340,6 @@ MAX_DIFFERENCE = 300;
  * @param {{1: number}} a
  * @param {{1: number}} b
  */
-
 function sort(a, b) {
     return a[1] - b[1];
 }
@@ -5322,7 +5358,6 @@ function sort(a, b) {
  * @return {Object.<string, Object>} - Filtered array of
  *   languages.
  */
-
 function filterLanguages(languages, whitelist, blacklist) {
     var filteredLanguages,
         language;
@@ -5358,7 +5393,6 @@ function filterLanguages(languages, whitelist, blacklist) {
  *   containing weighted trigrams.
  * @return {number} - The distance between the two.
  */
-
 function getDistance(trigrams, model) {
     var distance,
         index,
@@ -5398,7 +5432,6 @@ function getDistance(trigrams, model) {
  * @return {Array.<Array.<string, number>>} An array
  *   containing language--distance tuples.
  */
-
 function getDistances(trigrams, languages, options) {
     var distances,
         whitelist,
@@ -5427,7 +5460,6 @@ function getDistances(trigrams, languages, options) {
  * @param {RegExp} expression
  * @return {number} Float between 0 and 1.
  */
-
 function getOccurrence(value, expression) {
     var count;
 
@@ -5442,10 +5474,9 @@ function getOccurrence(value, expression) {
  *
  * @param {string} value
  * @param {Object.<string, RegExp>} scripts
- * @return {{0: string, 1: number} Top script and its
+ * @return {Array} Top script and its
  *   occurrence percentage.
  */
-
 function getTopScript(value, scripts) {
     var topCount,
         topScript,
@@ -5475,7 +5506,6 @@ function getTopScript(value, scripts) {
  * @return {Array.<Array.<string, number>>} - Normalized
  *   distances.
  */
-
 function normalize(value, distances) {
     var max,
         min,
@@ -5500,12 +5530,11 @@ function normalize(value, distances) {
  * Create a single tuple as a list of tuples from a given
  * language code.
  *
- * @param {Array.<string, number>} An single
+ * @param {string} language - A single
  *   language--distance tuple.
  * @return {Array.<Array.<string, number>>} An array
  *   containing a single language--distance.
  */
-
 function singleLanguageTuples(language) {
     return [[language, 1]];
 }
@@ -5518,7 +5547,6 @@ function singleLanguageTuples(language) {
  * @return {Array.<Array.<string, number>>} An array
  *   containing language--distance tuples.
  */
-
 function detectAll(value, options) {
     var script;
 
@@ -5528,14 +5556,14 @@ function detectAll(value, options) {
 
     value = value.substr(0, MAX_LENGTH);
 
-    /**
+    /*
      * Get the script which characters occur the most
      * in `value`.
      */
 
     script = getTopScript(value, expressions);
 
-    /**
+    /*
      * One languages exists for the most-used script.
      */
 
@@ -5543,7 +5571,7 @@ function detectAll(value, options) {
         return singleLanguageTuples(script[0]);
     }
 
-    /**
+    /*
      * Get all distances for a given script, and
      * normalize the distance values.
      */
@@ -5559,18 +5587,17 @@ function detectAll(value, options) {
  * @param {string} value - The value to test.
  * @return {string} The most probable language.
  */
-
 function detect(value, options) {
     return detectAll(value, options)[0][0];
 }
 
-/**
+/*
  * Expose `detectAll` on `detect`.
  */
 
 detect.all = detectAll;
 
-/**
+/*
  * Expose `detect`.
  */
 
@@ -6009,16 +6036,16 @@ module.exports = {
     "bci": "an |be | be| ɔ |un | i |ran|sra|wla| sr|kwl|in |la | kɛ|n b|kɛ |n s|n k| kw| ng|n n|lɛ |a b|n m|le | nu|a k|nun|i s| a |man|n i|ɛn |e k|ɛ n|kun|n ɔ|mun| ni| ti| mu|nin|nga|ti | n |ɛ ɔ|e n|ɔ n| su|ga |ɔ f| fa| ku| li|e s|su |a n|a s|a ɔ|ɛ b|i n|e a| sɔ|wa |sɔ |i k| ma| le|ɛ i|tin|ɔ k|di | at|ata|ta |ɔ l|fat| mɔ|ati|mɔ |lik|akw|ɛ m| sɛ|lak|e w| sa|dɛ |ndɛ|mɛn|i b| mm| yo|iɛ |ba | nd|nvl| nv| kl|vle|sɛ |a a| mɛ| fi|ke |und| wu|ɛ s|n a|mml|liɛ|mla| ka|ike|yo |ɔ t|ngb|i a|e b|a m| an|ɔ ɔ| di| yɛ| si| bo|e t|ndi|bo | ye|o n|n t|e m|fin|e y|n f|sa |ɔ b| fɔ|dan|n y|fa |i i|uma|yɛ | ju| ny|ɔ i|nan| na|kan|ɔun| tr|wun| b | o |n l| aw|a y|b a| wa|fɔu|i f|ɛ a|ing|ge |uɛ |i w|a w|nge|klu|ka |gba|e i|awa|o m|jum|ɔ y|ɛ k|wie|a i|ie | fl|e f| wl|tra| ba|lo |lun| ak|ang|ye | wi|e l| kp|uan|i m| uf|uwa|n w|sie|flɛ|kpa|alɛ|luw|flu|o i|kle|ua | da|nyi|nzɛ|wuk|ɔ s|wo |e ɔ|ika| wo|wan|bɔ |ian| bl|wlɛ| bu|anz|o ɔ| af|aci|u b|bu | ya|ɛ w|ufl|bɔb|te |zɛ |ɔ d|a t|elɛ|i t|ci |nua|fuɛ|ɔbɔ|u i|anm|i l| w |w a| bɔ|o b|lu |se |u m|ilɛ|iɛn| ja|a j|afi|i ɔ|n u| se|unm|nda|yek|bɛn|gbɛ|eku|ɛ l|nma|kac|u s|san|ko |o y|o s|a l|u n|si |anu|aka|any|ɛ d| ko|n j|ɔ w|u a|fi | yi|anw|i j|uka|fiɛ|a d|o a|lel| kɔ|ɔlɛ|ɔn |a f",
     "epo": "aj | la|la |kaj| ka|oj | de|on |de |raj| ra|iu |ajt|as |o k| ĉi|e l|j k| li| pr|eco|aŭ |ĉiu|jn |ia |jto|est| es| al|an | ki|pro|io | ko|en |n k|kon| ti|co |j p|o d| po|ibe| aŭ|ro |tas|lib|ber|aci|toj| en|a p| ne|cio|ere|ta | in|to |do |o e|j l|n a|j d| se|a k|j r|ala|j e|taj| re|rec|iuj|kiu| pe|o a|ita|ajn|ado|n d|sta|nac|a a|nta|lia|ekt|eni|iaj|ter|uj |per|ton|int| si|cia| ha|stu|a l|je | je|al |o ĉ|n p|jta|tu | ri|vas|sen|hav|hom| di| ho|nte|a e|ali|ent| so|nec|tra|a s|ava|por|a r| na|igi|tiu|sia|o p|n l|ega|or | aj|soc|j ĉ|s l|oci|no | pl|j n|kto|evi|s r|j s|ojn|laj|u a|re | eg|j a|gal|ers|ke |pre|igo|er |lan|n j|pri| ku|era|ian|rim| fa|e s| ju|e a|ika|ata|ntr|el |is |u h|li |ioj|don|ont|tat|ons| el| su|go |un | ke|ebl|bla|n s|oma|ĉi |raŭ|kla|u r|ne |ili|iĝo|o t|s e|tek|men|nen|j i|nda|con|a d|ena|cev|moj|ice|ric|ple|son|art|a h|o r|res| un|u s|coj|e p|ĝi |for|ato|ren|ara|ame|tan| pu|ote|rot| ma|vi |j f|len|dis|ive|ant|n r| vi|ami|iĝi|sti|ĝo |r l|n ĉ|u l| ag|erv|u e|unu|gno| ce| me|niu|iel|duk|ern| ŝt|laŭ|o n|lab|olo|abo|tio|bor|ŝta|imi| ed|lo |kun|edu|kom|dev|enc|ndo|lig|e e|a f|tig|i e| kr| pa|na |n i|kad|and|e d|mal|ono|dek|pol|oro|eri|edo|e k|rso|ti |rac|ion|loj|j h|pli|j m",
     "pam": "ng |ing|ang| ka|an | pa|g k| at|ala|g p|at |apa| ma|kar|lan| ki|ata|kin|pam|g m|ara|tan|pan|yan| a |pat| in| ba|aya|n a|g a|ung|rap|ama|man|g b| ni| di|nin|din|n k|a a|tin|rin|a k|ami| la|tun|n i|ari|asa|nga|iya|ban|ati| me|nan| da| sa| na|t k|gan|g s|bal|etu|mag|a i|met|sa |la |ant|kal| iy|kap|a n| mi|in |ya |aka|tau| o |san|n d|au |lay|ana|mak|yun|na |ika|a m|ipa|ran|atu| al|n n| ta|ti |ila|g l|ali|kay|nsa|aga|a p|iti|g t|par|u m|ans|nu |al |g i|t p|iwa|a d|syu|t m|sab|anu|un |uli|mip|ra |aki|aba|u a|mal|as |mil| it|una|bla|abl|ita|awa|kat|t a|ili|kas|g n|lag|da |tas|i a|wa |n l|lal|dap|mas|bat| pr|abi|ap |a b| e |mik|ani|sal|li |ad | an|ral|ira|gal|a r|lin|g d|nte| li|ale|kab|e p|ula|wal|lit|nti|s a|lip|nta|pro|te |ie |wan|ag |tu |upa| ya|g e|tek|usa|g g|bie|o p|it |pun|ian| bi|lat|aku|be |n p|sas|iba|yat|alu|tul|e m|kan|l a|nap|t i|lir|u k|isa|pag|abe|len|e k|rot|en |bil|mam|ksy|ngg|lam|p a|ily|liw|eks|ote|n o|gga|u i|eng|ipu| tu|lya| ri|aul|pas|dan|uri|ema|lab|ta |lak|are| ar|ail|tam|o a| ke|ril| pe|sar| ra|ina|asi|ka |art|pak|sak|mit|rel|i k|gaw| ul| re|inu|i i|mun|abu|asy|mba| pi|ags|obr|gpa|a o|am |n m|mem|o k|isi| mu| nu|mis|nun|era|ndi|ga |agp|aun|mab|anm|lub|gla|e a|nme",
-    "tpi": "ng |ong|lon| lo|im | ol| na|la | ma|pel|ela|ri |at | bi|ait|na | yu|ol |gat| ra|bil| ka|ilo|man|rai|t l|it |eri|mer| o |wan| i |mi |umi| wa|ing|yum|ta |t r|tin|eta|get|lge|olg|iga| ig| sa|ara|em |rap|i o|ap |nme|anm|in |ain|an |a m|ant|ape|nar|m o|i n| no|g o|g k|i i|as |ini|mas| me|n o|sim|tri|kan|kai|ntr| ga| st|a s| pa|gut| ha| wo|g y|yu |a l|g s|ama|m n|ok |g w|wok|spe|a k|i b|i m|g l|i l|sin|sam|pim|m l|kam| gu|l n|amt|tpe|g n| in|ts |a i|mti|utp|isp|kim|its| la|isi|aim|api|lo |o m|g b|tai| di|a o|dis|a t|p l|en |map|t w|s b| lu|luk|sem|no |tim|lai| ko| ki|ave|ols|nog|m k|lse|sav|nem|ve |a p| fr| em|nim|tu |i y|nka|et |m y| ti|g t|nap|g p|sta|tap|aun|a n| tu|un |asi|fri|pas|n m|m g|l i|aut|ane| sk|kau|t n|nta|sen|n s|oga|i g|g g|m i|kis|o i| ba|tok|os |usi|m s|ngt|anp|a w|s n|a h|s i|iki|i s|sai|l m|npe|ari|o l|o b|g r|ik |uti|iti|gti|aik|ut | to|a g|ili|a y| pi| ta|kin|ni |n b|lim| ye|yet| we|k b|ina|g m|uka|str|ins|rid|a b|anw|nsa|nwa|m w|m m|dom|ot |hap|ido|aus|i w| ne| si|n i|t o|dau|ese|rau|ank|sap|o k|m b|nin|pos|o n|am |go |s o|s l|u y|pik|vim|ivi|es | go|n n|kot|ron|ple|g d|a r|kul|ali|sku|apo|om |g h|l l|s s|ti |les|t m|gav|eki|nai|mek|kom| as|ind|nda|ip |liv|ul |ati",
     "tiv": "an | u | sh| na|nan|en | a |ha |sha|shi| i |er |a i| er|or | ma|ar |gh |n i|n u|a m| ve| ci|n s|han|u n| ke|lu |man| lu|n m|yô |a u|u a|n a|r n|a k|mba|in |ii | ha|kwa|ken|n k|na |hin| mb|a a| kw|n n| ga|ga |cii|agh|a n|aa |wag|ve |a s| yô|nge|ba |r u|u i| gb|ana| or|a t|mao|r i|ity|ma |aor|anm|nma|gen|oo | ta|ir |ren| kp|i n|ang|r m|e u|gba| ng|r s| ia|ere|ugh| it|ian|doo|ese|uma|kpa| la|u k|n g|ngu|gu |om |oug|on |ol |a h|ior| ts| he| ne|tar|h u| ka|la |n t|se |e n|r a|a v|hen| ku|aha|mac|yol|i u|ace|ge |ce | de|ish|u t| io| do|tom|hi |a e|u u|o u|i m|iyo|i d|bar|ave|ua |u s| te|igh|a l|e a|m u|a w|un |n c|n e|ne |ev |r k|ind|ene|sen| is|ndi|ker|era| to|a o|ima|u v|a g|paa|n h| wo|di |yar|tya|ase|e s|de |n y|ee |end|him|tes| mk|u m|ka |tyô| mz|won|u e| um|u h| wa| mi|yan|tin|ran|ie |hie|a c|hir|i a|e k|i v|mak| in| za|r c|nen|e l| ig|i k|kur|nah|tse| ik|ves|eng|rum|mzo|men|zou|i l|e i|a d|i e|i i| ya| vo|mlu|ô i|inj|nja| as|vou|ura|ron|gbe| iy|r t|ôro|a y|oru|e e| zu| ti|ra |n l|ci |u l|ver|kpe| fa|was| ml|e m|em |io |mi |da |civ|môm|ant|see|ivi|wan|vir|nda| ij|soo|zua|lun|ea |vea|wa |ôm |av |hio|ake|a f|igb|l i|u z|r l|zan|nta|e g|hem|h s| mt|ded|iky|o s|r g|do |ndo|iji| hi|e h",
+    "tpi": "ng |ong|lon| lo|im | ol| na|la | ma|pel|ela|ri |at | bi|ait|na | yu|ol |gat| ra|bil| ka|ilo|man|rai|t l|it |eri|mer| o |wan| i |mi |umi| wa|ing|yum|ta |t r|tin|eta|get|lge|olg|iga| ig| sa|ara|em |rap|i o|ap |nme|anm|in |ain|an |a m|ant|ape|nar|m o|i n| no|g o|g k|i i|as |ini|mas| me|n o|sim|tri|kan|kai|ntr| ga| st|a s| pa|gut| ha| wo|g y|yu |a l|g s|ama|m n|ok |g w|wok|spe|a k|i b|i m|g l|i l|sin|sam|pim|m l|kam| gu|l n|amt|tpe|g n| in|ts |a i|mti|utp|isp|kim|its| la|isi|aim|api|lo |o m|g b|tai| di|a o|dis|a t|p l|en |map|t w|s b| lu|luk|sem|no |tim|lai| ko| ki|ave|ols|nog|m k|lse|sav|nem|ve |a p| fr| em|nim|tu |i y|nka|et |m y| ti|g t|nap|g p|sta|tap|aun|a n| tu|un |asi|fri|pas|n m|m g|l i|aut|ane| sk|kau|t n|nta|sen|n s|oga|i g|g g|m i|kis|o i| ba|tok|os |usi|m s|ngt|anp|a w|s n|a h|s i|iki|i s|sai|l m|npe|ari|o l|o b|g r|ik |uti|iti|gti|aik|ut | to|a g|ili|a y| pi| ta|kin|ni |n b|lim| ye|yet| we|k b|ina|g m|uka|str|ins|rid|a b|anw|nsa|nwa|m w|m m|dom|ot |hap|ido|aus|i w| ne| si|n i|t o|dau|ese|rau|ank|sap|o k|m b|nin|pos|o n|am |go |s o|s l|u y|pik|vim|ivi|es | go|n n|kot|ron|ple|g d|a r|kul|ali|sku|apo|om |g h|l l|s s|ti |les|t m|gav|eki|nai|mek|kom| as|ind|nda|ip |liv|ul |ati",
     "ssw": "nge|eku|a n|ntf| le|e n| ng|tfu|lo |la |nga| ku|fu | ne|o l|khe|tsi|nkh|le |he |unt|elo| lo|si |ele|a l|ni |ung|mun|ma |lun|lel|wa |lek|nom| um|eni|oma| no|kut|hla|onk|a k|e l|ent|e k|gel|ela|ko |eli| ba| la|pha|ats| em|o n|ang|ema|eti|nel|nye|ban|ulu|uts|hul| na|aka|tfo|e u|lan|oku|lok|won|khu|esi|lul|a e|ule|ala|umu|tse|akh|ye |ve |i l|nek|ana|ane|lil|kwe|aph|na |we |ke |aba| wo|nti|ndl|ale|i n| ye|ba |ilu|gek|gan|lab|any|hat| li|tin|wen|gen|kel|len|ndz|fo |and|let|eko|e b|lwa| ka|te |set|nem| kw|mal|ka |ant|alu|ne |phi|ing| un|u u| ek|ise|une|e e|kul|nal|lal|mph|o y|uhl|fan|‐ke|ile|i k|kub|ukh|ben|kan|ako|a b|kat|eke|ive| ti|sek|nak|sit|seb|u l|alo|yel|kho|wo |kha|les|o e|ngu|kus|lom|ini|ikh|elw|isa|sa |fun|e w|ebe|o k|jen|iph|eng|kwa|ahl|uph|emb|be |tis|lwe| si|etf|isw|uma| se|ene|ta |nan| im|i e|enk|e a|abe|kun|ume|hak|nen|dle|ase|sen|kuv|tel|ebu|omu| in|lin|sel|tfw|nhl|a i|e i|kuk|uba|ti |kuf|mhl|bon|ula|sin|int|fut|dza|lak| wa|ind|ave|ali|yen|ete|to |ngo|use|kuh|hol|ze |a‐k|ona|a a|se |nje|und|swa|lon|eki|ike|i a|lis|tsa|gab|sim|i w|its|fol|e t|o m|hi |ndv|phe| ya|ma‐|utf|sik|liv|bun|cal|nta|ata|gal|mel|ute|wem|gap|han|uny|oba|alw|ili|a w|mbi| bu|gob| at|awo|ekw|dze|u n|emp",
     "nyn": "omu| om|ntu|tu | ku|a o|ra | ob|wa |obu|ari|a k|mun|a n|unt|mu |uri|nga| mu|aba|ri |a e| na|e o|gye|rik|ho |a a|han|ang|re |ga |iri|bwa|oku|aha|bur| bu|na |eki|ka |iku|ire|uga|ndi|ush|ban|ain|ere|ira|we |kur|sho| ek| ab|ne |ine|a b|and| ni|u a|e k|sa |u b|iha|i m|e n|kir|be |aho|bug|ibw| eb| ba|ing|ura|gir|u n|kut|ung|ant|abe| ah|ye |e b|i n| bw|kwe|ebi|era|iki|ba |ro | kw| ok|uba|gab| no|zi |bir|i k|u o|o o|rwa|o e|kub|end|ama|mer|eka|kug|ate|tee|di |rir|bus|kuk|rin|ish|sha|i b|wah|ha |u m|bwe|ngi| ai|ara|kwa|kan|o g|za |ngo|kuh|ana|i a|eme|eek|i o|baa| ka|go | gw|nib|zib|ash| or|iro|she|o k|u k|iin|o b|iba|oon|gan|agi|ngy|hem|mwe|ona|oro|bwo| ar|ya |i e|uru|nar|eir|uta|tar|kwi| ti|egy| n |hi |bar|isa|ute|o a|shi|ora|e e| en| ki| nk|riz|nda|da |ja |si |nsi|wen|yes|tek|yen|aga| am|o n|rei|rag|ki |obw|mur| ha|ris|wee|amb|aab|bya|kus|ugi|a y|ind|ata| ne|bas| ky|ija|hob|ikw|mus|gar|a g|eky|dii|bor|aar|ibi| we|aka|ham|emi|ekw|rer|ini|har|gi | bi|naa|kor| er|gwa|n o|iza| by|eih|yam|iho|rih|i y|ete|o m|eby|but|a r|ika|mag|ozi| em|ong|iik|iko|uka|nik| yo|sib|eri|utu|tuu|amu|uko|irw|nka|ani|yaa|u e|mut|roz|mub|ens|aij|nis|uku|kye|nde|der|e a|nok|nko|asa|aas|hab|obo|ent|ahu|rye|oba|kih|yob",
     "yao": "chi|ndu| wa|du | ch|a m|aku|akw|ni |kwe|und| mu|wak|wan|mun| ku|la |e m|wa |ulu|amb| ak|kut|u w|ali|mbo|lu |we | ma|le |ufu|ful|ila|a k|bo |a n| ga| ni|amu|kwa|se | na|ose|hil|nga|go |aka|and|ang|na | uf| pa|ete|uti|jwa|kul| jw|son|ngo|lam|e u|ne |kam|oni| so|u j|e a|ele|a c|ana|wal|ti |isy|cha| yi|gan|te |ya |mwa|lij|wet|che|ga |yak|ili|pa |e n| ya|o s|nda|i m|ula|jos|i a|ile|ijo|li |e k|o c|a u| mw|ich|mul|uch|o m|asa|ala|kas| ka|i w|ela|u a|ach|his|nam|lan|yin|i k|ind|ani|sye|yo |si |pe |gal|iwa|man|sya|aga|a w|o a|ule|ikw|asi|kus|ope|ma |gak|e w|jil|kap|hak|ika|ite|aji|mba|u g|ase|mbi|kum|uli|any|ape|a y|ekw|mal|imb|ja | al|end| ng| ja|mas|usi|kup|e c|pen|ye |anj|ka |a j|a p|lem|o n|ama|him|ago|sen|eng|ane|ako|mch|ola|och|oso|ena| kw|sop|lek|pel|gwa|hel|ine|gam|u y| mc|i y|awo|ons| mp|ole| li|wo |i u|hik|kol|auf|mka|tam|syo|e y|mpe|ten|ati|mau|nji|wam|muc|ong|i g|kan|uma|je |iku|nag|kwi|da | ul|cho|ngw|ene|iga|ano|esy|ion|upi|pag|o k|eka|wu |uwa|kuw|sa | un|a l|bom|iya|uni|jo |ale| ji|apa|yil|lil|uku|i n|o g|a a|o w|waj|mus|ipa|pan|pak|one|i c|ujo|duj|emw|nya|tio|jak|oma|nja|hiw|dan|apo|e j|poc| wo|lic|alo|eje|ing| mi|e p|lo |lig|a s| yo|ung|no | m |upa|ata| bo|nde|he |i j|was",
     "lav": "as |ība| un|un |tie|ies|bas|ai | ti|esī|sīb|ien| vi|bu |vie|ir | ir|ību|iem| va| pa|em | ne|s u|am |m i|šan|u u|r t|pie| ci| sa|ās | uz|vai| ka| pi|brī| iz|rīv| br|uz |cij|dzī|ena| ar|ar |isk|s p|es | at|āci| ap|ot |nam|viņ|inā|ikv|kvi| no|s v| ie|vis| ik|i i|pār|u a|ju |nu | pr|edr|vīb|īvī|iju|drī|u p|dar| st|lvē|cil|ilv|s t| la|iņa|ana|s i|n i|īdz|s s|kā |tīb|i a|ija|bai|ībā|ied|s n|arb|val|līd|s b|aiz|tu |iec|cie|ām |gu |vēk|īgu|īgi|ka |jas|umu|mu |t p| jā|u v|zīb|ska|lst|als|kum|gi |s l| tā|jot|stā|st |n v|vēr|a p|arī|aut|n p|ama|kas|u k| da| ta|nīg|izs|ojo|anu|ņa |u n|sta|s a|ba | ai| so|s d|a u|ā a|stī|cīb|m u|i u|son|not|mat|sav|iev|ā v|jum| kā|u t|ned|ajā|s k|u i|i v|līt|ēro| pe| dz|i n|per|u d|īks|kat|nāt|līb|nāc|rdz|nīb|pil|rīk|kst|a s|cit|pam| pā|ekl|tau|u s|bie|jā | re|i p|kur|a a|t v| li|evi|tis|evē|bā |ma |rīb|a v|os |ras|abi|nev|iku|skā| ve|lik| lī|nas|t k|ant|uma|roš|kād|zsa|sar|ciā|mie|ais|eci|oci|oša| je|jeb|būt|atr|n b|ieš|rso|ers|soc|enā|a t|t s|īša| be|bez|āda|ebk| ku|glī|isp|tot|spā|roj|lie|pre|ret|aul|na |tra|iet|du |zgl|āt |ard|kt |ier|izg|ikt|paš|iāl|nod|ts |eja|ā u|sab|eno|ēt |ta |tik|tīt|ecī| de|īga|tar|arp|r j|īst|tās|ja |enī|atv|vu |ārē|rēj|rie|oši|dro",
     "quz": "una|an | ka|nan|cha|ana|as |apa|pas|man|lla|aq |sqa|ta | ru|run|kun|ach|qa | ll|pa |paq|na |nta|chi|npa| ma|nch|aku|anp| ch|in |a r|ant|hay|mi |taq|ay |ama|asq|qan|tin|kuy|chu|lap|a k|yta|a a|ima|wan|ata|spa|all| wa|n k| ja|ipa| ya|nin|ina|aqm|his|qmi|a m| ju|pi |anc|nap|iku|aus|usa|kau|pan|nak|kan| mu|naq|aqt| pa|kam|aqa|kay|i k|kus|un |ank|isq|nku|may|yku|ayn|a j|a l|ayt|qta|ati|a p| pi| ri|aci|lli|lin|ayk|uku| al| at|n r|yac|ion|pip|han|inc|n j|ayp|yni|qpa|nac|say|asp|uy |mac|s m|cio|awa|a c|laq|tap| yu| im|a y|yoq|n m|asi|mun| de|has|n a| as|n c|int|uch|nma|s k|oq |ari|q k|hu | na|ypa| tu|tuk|tun|atu|rim|q r| sa|jat|yan| ji|nat|anm|jin|a s|api|hik|uya|nti|pac|tan|ash|mas|n p|n l|k a|ura| su|a q|yuy|n y|ech|q j|unt|yay|ypi|is |lan| qa|usp|kas| an|a w|s w|inp|sin| ta|ma |a t|shw|q a|hwa|uyt|nmi|sim|ere|rec|der|uma|s t|isp|n t|ña | ni| ay|upa|nam|hur|war|waw|imi|nka|sap|kaq|s j|was|y r|usq|kin| un|inm|qas| si|ani|tiy|t a|sta|pay|pis|maq|hin|ha |arm|npi|rmi|ink|aqp|q c|la |i p|nis|yma|nk | ku|aym|nal|hak|rik| ti|unc|niy|y s|iyo|juc| qh|ist|pap| aj|s y|cho|onq| re|ayo|iqp|n s|s p|os |i m|t i|ras|ita|piq|qsi|ku |yqa|mik|q y|eqs|pat|tak| pu|lak|i r|ipi|iya|ywa|muc|a n| qe|san|jun|y l",
     "rmy": " sh|ri | a |shi|hi |i s|ti |ea |ari|i a| ca|rea|tsi|i c| s |a a|ndr|tu |câ |dre|i n|ept|ptu|rep|li | nd| di| un|a s|are|i u|ats|la | la|i l|ear| li|lje|di |ati|lui|ui |a l| tu|tat|â s|ei |sea| ti| câ|un |jei|or |caf|afi| lu|â t| ar|ali|i t|fi |ilj|a c|bâ |râ |car|ibâ|lor| cu|nâ |icâ|a n|i d|s h|hib|tâ | hi|â a|si |u c|eas|tur|tul|ber|â c| in| co|lib|u a|n a|cu |ibe|u s|tea|lu |tsâ|ul |tse|int|a p|i i| pr|u p|i p|url|i m|lji|min|sti|alâ| al| pi|sht|nal|â n| si|ji |â p|rar|ert|sii|ii |nat|til|u l|sâ |lâ |â l|sta| nu| ic|i f|nu |ist|mlu|ili|a t|ots|uni|rta|a d|its|â d|pri| ts|oml|i e| de| na|sia| po|gur|tut| st| at| ân|ura|al |ita|anâ| ma|ips|can|oat|tsl| su| as| so|ând|nts| ap| ea|sh |nit| mi|ent|a i|ate| ac|poa|ilo|sot|ina|ash|ona| lj|âts|rli|lip|â i|unâ|t c|iti|bli| u |nji| fa|zea|tât|ril| om|urâ|con|i b|sig|igu|ntr|pur|par|ntu|let|com|iil| ni|eal|ind|r s|hti|at |ucr|art|adz|arâ|itâ|rtâ|inj|uri| eg| sc|atâ|sin|ral|pse|asi| ba|r a|apu|âlj|ia |chi| va|sun|ter|rlo|ica| pu|luc|unt|i v|ise|ini|est|ast|gal|ega|act|nda|ead|uts|a u|imi|ma |ra |pis|s l|ets|a o|va |pi |lit|scâ|asc|ial|sa | ta|rim|tar|alt|idi|tlu| gh|era|ant|eri|aes|a m| nâ| ae|oar|nea|pro|apt|ana|ta |atl|lic|l s|iun|nte|mil",
-    "sco": " th|the|he |nd | an|and| o |al | in|ae |in |es |ion|cht| ta|tio|or |t t|ric| ri|ich|tae|on |s a|is |e a| aw| be|s t| he|ati|ent|ht |ts |e r| co|er | na| fr|bod|ody|his|dy |hes| fo|e t|o t|for|it |ng |ty |n t| or|be |fre|ree| hi|l a|ing|awb|wbo| sh|s o|ter| on|sha|nat|r t|nal|an |n a| as|hal|e o|y a|d t|tit| pe|l b| re|y h|aw | ma|nt |men|air|ce | pr| a | ti|hts|e f|e c|le |eed|edo|dom|n o|e s|ons|d a|res|e w|man| wi|d f|ed |sta|ar |t o|ona| it|ity|at |as |her|ers|t i| de|con|til|il | st|nti|e p|e i|e g|nce|ny | so| di|nte|ony|ns |und|ith|thi| fu|ie |ir |oun|ont|e e| un|pro|oci|nae|y i|lit|soc|com|nin|en |ic |ne |r a| me|ly | wa|ear|ual| en|ame|uni|r i|e h|hum| is|ane|uma|ess|inc| fa|equ| hu|ver| eq|e m|hei|o h|ms |d o| ha|wi |t n|s f| no|t a|int|cla|rit|qua|d i|iti| se|rsa|y s|ial| le| te|e d|r o|ive|r h| la|nit|om |ite|s r|cie|s i|ali|cti|cia|re |aim|rat|ld |tat|hat|rt |per|s h|n f|dis|tha| pu| we|g a|oms|eil|ntr|fai|tri|ist|ild|e u|r s|dec|lea|e b|hau|imi|mai|s n| ac|elt|lt |l t|omm|d p| ga|din|war|law|eme|y t|era|eir|art|ds |s e|ral|nor|tel|ge |g o|eik|eli|rie|rou|nda| gr|lan|mei|ate| ge|n i|ten|id |s d|ors|iou|bei|sam|nta|sec|mmo|lar| tr|ful|ul |mon|s w|anc|l o|gar|ern|ara|d s",
     "src": " de|de |e s|os | sa|tzi|tu | su|one| a |sa |ne | e | in|ent|ion|der|su |zio|ere|as |e d|a s|u d|ret|es | cu|ess| pr| so|s d|men|ale|ade|atz| s |re |e c|sos|in |s i|chi| un|nte|ten|etu|er | pe|et |e e|ida| te|le | is| ch|ene|are| es|a p| si|u s|a d|pro|hi |dad|te |sse|tad|zi |e t| on|e i|s e|nt |nzi|u a|sso|onz| co|ame|cun|tos|e a|sas|a c|ntu|net|na |e p|at |nes|du | li|t d|n s|son|s a| o |ber|ro |pes|u e|int|zia|nat|i p|ia |res|nu |un | re|sta|s p|ter|era| po| di|per|s c|t s|rar|ser| at|e o|s s|ibe|lib|si |tra|ust|u c|rta|unu|cus|ntz|adu| to|da |nal| na|ant|egu|eto|und|ine|i s|a e|otu|u p|t a|ert|est| da|a a| fa|ist|ona|pod|s o|pre|iss|ra | ma|ica|tot|les|ntr|una|sua|con|dae|ae |s n|man|sia|ndi|nid|ada|a l|nta|o s|a i|ua |ide| ne|otz|min|rat|iat| pa|nde|ode|dis|ren|ali|a u|ta |u o|sot|u t|ime|ssi| as|o a|pet|e u|nsi|fun|lid|epe|eru|unt|st |t e|end|us | fu| ca|ner|dos|s f|ass|nda|uni|das|iu |ind|a t|ial|a f|ghe|gua| eg|a n| se|ont|etz|s m|s ò|sti|t p|ual|nen| me|sen|com|ura|a b|lic|a o|pen|ado|nos|inn|des|seg|e f|din|òmi|ire|a m| òm|e l|dep|ènt|for|ena|par| tr|u i|ara|cra|sid| no|s u|u r|suo|e n|pri|ina| fi|ria|gur|art|det|s t| bo|tar|emo|run|ama|icu|isp|dam|e r|itu|cum|tut|eli| bi",
+    "sco": " th|the|he |nd | an|and| o |al | in|ae |in |es |ion|cht| ta|tio|or |t t|ric| ri|ich|tae|on |s a|is |e a| aw| be|s t| he|ati|ent|ht |ts |e r| co|er | na| fr|bod|ody|his|dy |hes| fo|e t|o t|for|it |ng |ty |n t| or|be |fre|ree| hi|l a|ing|awb|wbo| sh|s o|ter| on|sha|nat|r t|nal|an |n a| as|hal|e o|y a|d t|tit| pe|l b| re|y h|aw | ma|nt |men|air|ce | pr| a | ti|hts|e f|e c|le |eed|edo|dom|n o|e s|ons|d a|res|e w|man| wi|d f|ed |sta|ar |t o|ona| it|ity|at |as |her|ers|t i| de|con|til|il | st|nti|e p|e i|e g|nce|ny | so| di|nte|ony|ns |und|ith|thi| fu|ie |ir |oun|ont|e e| un|pro|oci|nae|y i|lit|soc|com|nin|en |ic |ne |r a| me|ly | wa|ear|ual| en|ame|uni|r i|e h|hum| is|ane|uma|ess|inc| fa|equ| hu|ver| eq|e m|hei|o h|ms |d o| ha|wi |t n|s f| no|t a|int|cla|rit|qua|d i|iti| se|rsa|y s|ial| le| te|e d|r o|ive|r h| la|nit|om |ite|s r|cie|s i|ali|cti|cia|re |aim|rat|ld |tat|hat|rt |per|s h|n f|dis|tha| pu| we|g a|oms|eil|ntr|fai|tri|ist|ild|e u|r s|dec|lea|e b|hau|imi|mai|s n| ac|elt|lt |l t|omm|d p| ga|din|war|law|eme|y t|era|eir|art|ds |s e|ral|nor|tel|ge |g o|eik|eli|rie|rou|nda| gr|lan|mei|ate| ge|n i|ten|id |s d|ors|iou|bei|sam|nta|sec|mmo|lar| tr|ful|ul |mon|s w|anc|l o|gar|ern|ara|d s",
     "tso": " ku|ku |ni |a k|hi | ni|a n| a |i k|ka |i n|wa | ya| ma|la |ya |na |a m| ti| hi|fan| sv|nel|hu |a t|ane|ela| ka|iwa|u n| na|svi|lo |nhu|a l|a h|ele|le |ndz|u k|va | xi|a w|vi |mbe| à |elo|wu | wu|eli| mu|u y|mun|i l| le|nga|umb|lan|nfa| va|u l|be |u h|li |kum|tik|ihi|iku|aka|unh| wa|a s|liw|isa|i m| fa|ma |anu|nu |u t|han| la| ng| wi|wih| ha|a x|yel|a a|lel| nf|i h|ta |ana|o y|e k| nt|u a|i a|eni| li|ndl|ga |any| ko| kh|van|u w|u v|amb|a y|ti |sa |pfu|i t|i w|in |lek|e y|ang|and|ati|yi | è |irh|sva|mat|ani|i s| nd|a v|mel|yen|hla|isi|hin| ye|eke|n k| lo|ulu|kwe|hul|thl| kw|nth|tin|mah|wan|ava| mi|ko |khu|u s|à n|dle|lul|ule|tir|o l|i y|aha|aye|kwa|inf|à k|è k|rhu|mba| th|fum|end|anh|xi |dzi|kel|a f|u f| lè|we |may|eka|nye|gan|dze|vu |ham|xim|mis|thx|aku|tà |xa |hlo| tà|eyi|ima|nti|eki|ngo| si|u p|vak|ngu|lak|ume|oko|lon|a è|o n|lok| ta|zis|hak|u m|i à|ke |i x|u x|rhi|ha |awu|dza|u à|za | là|n w|ung|e n|a à|i f|esv|les|vik|siw| y |à m|to |mha|ola|sav|ond|nya|kot|kol|uma|e h|mbi|e s|naw|ths| dj|fun|mu |a u|xiw| ts| hl|u d| lw|nyi|ki |ong|sun|lwe|ike|ind|nis|xih|e a|èli|imu|sel|sek|iph|zen|lum| pf| xa|sin|umu|sim|ave|kar|ala|wey|sik|o t|avu|wav|oni|ile|wak| yi|ali| hà|gul|e l|ba |i v",
     "men": " ng|a n|i n|ɔɔ |ti | ti|i l| i | ma| nu| gb|ngi|a k|aa |gi | kɔ|ia |ɛɛ |ei | na| a |ma |hu | ye| ta|kɔɔ|a t|na | hu|a m| kɛ| nd|gbi|ya |bi |i y| lɔ|a h|ɛ n|ii |ɔny|u g|i h|nya|uu |lɔn| kp|i m|ngɔ|nga|la |i t|kɛɛ|lɔ |i k|ɔ t|mia| mi|a y|nge| ji|ee |gaa|a a|ɔ n|ɔ i|gɔ |ind|tao|ao | hi|num| le| yɛ|umu|mu |ung|nda|hin|ye |i g|hou|hug|e n|ugb|ni |a l|sia|ndɔ|nuu|a i|maa| ya|ahu|gba|u k|mah|oun|ɔma|le |da |i w|ɔlɔ|i j| va| ɔɔ|eng|i i|va |yei|dɔl|li |lei| sa|yɛ |kpɛ|yil|isi| la|bat|a w|u n|e t|ta |ahi| ki| wo|ɔ k|e a|ɛlɛ|saw| lo|o k|ji |gbɔ|pɛl|uvu|ili| ho|vuu| gu|nde|aho|gbu|ɛ t|ale|ila|nah|kɛ |ɛi |ndu|kpa| wa|nuv|ge |e m| ny|e k|atɛ|wei|awe|a g| ii|bua|ie |awa|wot|yek|kɔl|ulɔ|ing|ga |gul|tɛ |ɔle|u t|gbɛ|ɔ y|nun|wa |hei|ani|ɛ k| tɔ|bɔm|ɛ g|ein|taa| ha|ang|uni|u i|ekp|ɔ g|lɛɛ|kpɔ|a v|kpe|ote|i b|te |u m|tii|ɔ s| we|ɛ h|baa|pe |ɛ y| ɛɛ|i ɛ| ba|fa |a j|bu |ifa|kia|jif|u l|eke|ama|gen|u w|lee|lɛ | lɛ|ɛmb|a b|e y|aah|hii|ngo|bɛm|lek| wi|ui | yi|u y|bɛɛ| he|u a|e h|ɔ m|uah|o g|yen|yan|nyi|aal|hi |wu |yee|maj|ajɔ|jɔɔ|nye|mbo|e g|u ɔ|ong|ka |oi |lon|dun|uny|ɛng| sɔ|lɔl|nyɛ|lii|a p|oyi|iti| bɛ|lɔm|akp|e i|ɛ i| ka|jis|oko|i p|ɔla| wɛ|a s|ewɔ|iye|dɔɔ|lok|gua|ɛ b| li|u h|nin|wee|lah|ula| ga| du|i v",
     "fon": "na | na| e | ɖo|ɔn |ɖo |kpo| kp|nu |o n| ɔ | nu| mɛ| gb|mɛ |po |do |yi |tɔn| é | si|gbɛ|e n|in | to| lɛ|lɛ | tɔ|nyi| al|wɛ | do|bo |ɛtɔ| ny|tɔ |e ɖ|ɖe | bo|okp|lo |ee |ɖok|to |ɔ e|bɛt| wɛ| ac|a n|sin|acɛ|o t|o a|ɛn |i ɖ|o e|bɔ |ɔ ɖ| bɔ|cɛ |ɛ b| ɖe|a ɖ|ɔ n|ɛ ɔ|n b|an |nɔ |odo|ɛ ɖ|o ɔ|ɛ n|ɛ e|ɖɔ |ji | ɖɔ|lin|n n| en|bi |o ɖ|mɔ |n e|pod| bi|lɔ | mɔ|n a|nɛ |ɛ k|i n|un |ɔ m|i e|mɛɖ| hw| ji| ye|ɛɖe|enɛ| ǎ |alo|o s|kpl|u e|a d|ɔ b| nɔ|alɔ|ɔ é|ɔ g|ɖee|si |n m|gbɔ|a t|n k| yi|sɛn|jɛ |e k| wa|o m|e m|é ɖ| jl|hɛn|e e| hɛ| sɛ|nnu|nun|wa |n ɖ| ee|é n|kpa|unɔ|bɔn|ɔ t|a s|ɛ é|u k|ɔ w|inu|e s|i t|zɔn|o l|a y|o g|bɛ |ma |n t|e j|ɔ s|ɔ a|o b|a z| zɔ|jlo|i k|nuk|ɔ k|a e|ɔ l|u t|kɔn|xu |e ɔ| lo|hwɛ| ka|eɖe|o y|e w|jij|sis|n l|ixu|six| su|ali|isi|ukɔ|ɛ a| ay|ayi|su |n g|u a|a b|n d|dan|nmɛ| ta|n ɔ|etɔ|e g|o j| we|onu|wem|ba |ema|ɛ g|o h|ɛ s|ɛ t|i s|u w|n s| sɔ|bǐ | bǐ|hwe|a m|sɔ |lɔn|o d|u m|ple| ma|ɛ l|azɔ| az|tog|ye |i l|hun| jɛ|o w|ogu|o k|u g|kan|oɖo|elɔ|gbe| le| el|wu |ka |ɛ w|n w| li|sun|esu| hu| i |ɖó | ɖó|plɔ|ɖi |ɖè |ɛnn|pan|i m|yet|xo |iin|tii| ti| fi|e b|zan|i w|poɖ|ɖes|a j|ann|a g|gun| ɖi| tu|gan|ɛ m| wu|u s|ɔ y|a l| da|u n|u l|ɔnu|obo|ɔ h|vi |lee|ijɛ|ta |e a|ya |nuɖ|ɔ d|wen| tɛ| ga| ɛ | xo",
@@ -6089,11 +6116,12 @@ module.exports = {
  * Invoke `callback` for every descendant of the
  * operated on context.
  *
+ * @param {string?} type - Node type to search for.
+ *   Stops visiting when the return value is `false`.
  * @param {function(Node): boolean?} callback - Visitor.
  *   Stops visiting when the return value is `false`.
- * @this {Node} Context to search in.
+ * @this {Node} - Context to search in.
  */
-
 function visit(type, callback) {
     var node,
         next;
@@ -6106,7 +6134,7 @@ function visit(type, callback) {
     }
 
     while (node) {
-        /**
+        /*
          * Allow for removal of the node by `callback`.
          */
 
@@ -6118,7 +6146,7 @@ function visit(type, callback) {
             }
         }
 
-        /**
+        /*
          * If possible, invoke the node's own `visit`
          *  method, otherwise call retext-visit's
          * `visit` method.
@@ -6136,7 +6164,6 @@ function visit(type, callback) {
  *
  * @deprecated
  */
-
 function visitType() {
     throw new Error(
         'visitType(type, callback) is deprecated.\n' +
@@ -6147,9 +6174,8 @@ function visitType() {
 /**
  * Define `plugin`.
  *
- * @param {Retext} retext - Instance of Retext.
+ * @param {Retext} retext
  */
-
 function plugin(retext) {
     var TextOM,
         parentPrototype,
@@ -6159,7 +6185,7 @@ function plugin(retext) {
     parentPrototype = TextOM.Parent.prototype;
     elementPrototype = TextOM.Element.prototype;
 
-    /**
+    /*
      * Expose `visit` and `visitType` on Parents.
      *
      * Due to multiple inheritance of Elements (Parent
@@ -6170,7 +6196,7 @@ function plugin(retext) {
     elementPrototype.visitType = parentPrototype.visitType = visitType;
 }
 
-/**
+/*
  * Expose `plugin`.
  */
 

@@ -2,8 +2,8 @@
  * Dependencies.
  */
 
-var Retext = require('wooorm/retext@0.5.0-rc.1');
-var language = require('wooorm/retext-language@0.3.3');
+var Retext = require('wooorm/retext@0.5.0');
+var language = require('wooorm/retext-language@0.3.4');
 var debounce = require('component/debounce@1.0.0');
 
 /**
