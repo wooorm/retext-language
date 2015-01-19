@@ -102,4 +102,4 @@ retext w/ retext-language x 0.15 ops/sec ±4.92% (5 runs sampled)
 
 ## License
 
-MIT © [Titus Wormer](http://wooorm.com)
+[MIT](LICENSE) © [Titus Wormer](http://wooorm.com)
