@@ -22,6 +22,12 @@ $ component install wooorm/retext-language
 $ bower install retext-language
 ```
 
+[Duo](http://duojs.org/#getting-started):
+
+```javascript
+var language = require('wooorm/retext-language');
+```
+
 ## Usage
 
 ```javascript
