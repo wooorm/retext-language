@@ -4,19 +4,19 @@ Detect the language of text with **[Retext](https://github.com/wooorm/retext)**.
 
 ## Installation
 
-npm:
+[npm](https://docs.npmjs.com/cli/install):
 
 ```bash
 $ npm install retext-language
 ```
 
-Component:
+[Component.js](https://github.com/componentjs/component):
 
 ```bash
 $ component install wooorm/retext-language
 ```
 
-Bower:
+[Bower](http://bower.io/#install-packages):
 
 ```bash
 $ bower install retext-language
@@ -50,7 +50,7 @@ retext.parse(
         tree.visit(tree.PARAGRAPH_NODE, function (node) {
             console.log(node.toString(), node.data.language);
         });
-        /**
+        /*
          * 'Tots els éssers humans neixen lliures i iguals. All human beings are born free and equal.', 'cat' // Catalan
          * 'Toate ființele umane se nasc libere și egale. 人人生而自由﹐在尊嚴和權利上一律平等。', 'ron' // Romanian
          */
@@ -58,7 +58,7 @@ retext.parse(
         tree.visit(tree.SENTENCE_NODE, function (node) {
             console.log(node.toString(), node.data.language);
         });
-        /**
+        /*
          * 'Tots els éssers humans neixen lliures i iguals.', 'cat' // Catalan
          * 'All human beings are born free and equal.', 'eng' // English
          * 'Toate ființele umane se nasc libere și egale.', 'ron' // Romanian
