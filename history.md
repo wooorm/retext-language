@@ -4,6 +4,11 @@
 
 <!--lint disable maximum-line-length-->
 
+1.0.0 / 2015-08-04
+==================
+
+*   Refactor api for retext@1.0.0 ([af17bf3](https://github.com/wooorm/retext-language/commit/af17bf3))
+
 0.3.4 / 2015-01-19
 ==================
 
