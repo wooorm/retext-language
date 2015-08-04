@@ -29,7 +29,7 @@ var fixture =
     'Another very English sentence. ' +
     '1.';
 
-var sentences = ['afr', 'por', 'eng', 'fra', 'eng'];
+var sentences = ['afr', 'por', 'eng', 'fra', 'eng', null];
 var paragraphs = [sentences.slice(0, 2), sentences.slice(2)];
 
 /*
