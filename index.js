@@ -1,14 +1,36 @@
+/**
+ * @author Titus Wormer
+ * @copyright 2014-2015 Titus Wormer
+ * @license MIT
+ * @module retext:language
+ * @fileoverview Detect the language of text with Retext.
+ */
+
 'use strict';
 
 /*
  * Dependencies.
  */
 
-var franc,
-    visit;
+var franc = require('franc');
+var visit = require('unist-util-visit');
+var nlcstToString = require('nlcst-to-string');
 
-franc = require('franc');
-visit = require('retext-visit');
+/**
+ * Patch a `language` and `languages` properties on `node`.
+ *
+ * @param {NLCSTNode} node - Node.
+ * @param {Array.<Array.<string, number>>} languages - Languages.
+ */
+function patch(node, languages) {
+    var data = node.data || {};
+    var primary = languages[0][0];
+
+    data.language = primary === 'und' ? null : primary;
+    data.languages = languages;
+
+    node.data = data;
+}
 
 /**
  * Deep regular sort on the number at `1` in both objects.
@@ -17,8 +39,8 @@ visit = require('retext-visit');
  *   > [[0, 20], [0, 1], [0, 5]].sort(sort);
  *   // [[0, 1], [0, 5], [0, 20]]
  *
- * @param {{1: number}} a
- * @param {{1: number}} b
+ * @param {Object} a - Value.
+ * @param {Object} b - Comparator.
  */
 function sort(a, b) {
     return a[1] - b[1];
@@ -30,7 +52,8 @@ function sort(a, b) {
  * attributes, and their occurence count as their
  * values.
  *
- * @param {Object.<string, number>} dictionary
+ * @param {Object.<string, number>} dictionary - Map of
+ *   language-codes to distances.
  * @return {Array.<Array.<string, number>>} An
  *   array containing language--distance tupples,
  *   sorted by count (low to high).
@@ -49,100 +72,119 @@ function sortDistanceObject(dictionary) {
 }
 
 /**
- * Set languages on `node` from multiple
- * language--distance tuples.
+ * Patch a properties on `SentenceNode`s.
  *
- * @param {Node} node
- * @param {Array.<Array.<string, number>>} languages
+ * @param {NLCSTSentenceNode} node - Sentence.
  */
-function setLanguages(node, languages) {
-    var primaryLanguage;
-
-    primaryLanguage = languages[0][0];
-
-    node.data.language = primaryLanguage === 'und' ? null : primaryLanguage;
-    node.data.languages = languages;
+function any(node) {
+    patch(node, franc.all(nlcstToString(node)));
 }
 
 /**
- * Handler for a change inside a parent.
+ * Factory to gather parents and patch them based on their
+ * childrens directionality.
  *
- * @param {Parent} parent
+ * @return {function(node, index, parent)} - Can be passed
+ *   to `visit`.
  */
-function onchangeinparent(parent) {
-    var node,
-        dictionary,
-        languages,
-        tuple;
+function concatenateFactory() {
+    var queue = [];
 
-    if (!parent) {
-        return;
+    /**
+     * Gather a parent if not already gathered.
+     *
+     * @param {NLCSTChildNode} node - Child.
+     * @param {number} index - Position of `node` in
+     *   `parent`.
+     * @param {NLCSTParentNode} parent - Parent of `child`.
+     */
+    function concatenate(node, index, parent) {
+        if (
+            parent &&
+            (parent.type === 'ParagraphNode' || parent.type === 'RootNode') &&
+            queue.indexOf(parent) === -1
+        ) {
+            queue.push(parent);
+        }
     }
 
-    dictionary = {};
+    /**
+     * Patch one parent.
+     *
+     * @param {NLCSTParentNode} node - Parent
+     * @return {Array.<Array.<string, number>>} - Language
+     *  map.
+     */
+    function one(node) {
+        var children = node.children;
+        var length = children.length;
+        var index = -1;
+        var languages;
+        var child;
+        var dictionary = {};
+        var tuple;
 
-    node = parent.head;
+        while (++index < length) {
+            child = children[index];
+            languages = child.data && child.data.languages;
 
-    while (node) {
-        languages = node.data.languages;
+            if (languages) {
+                tuple = languages[0];
 
-        if (languages) {
-            tuple = languages[0];
-
-            if (tuple[0] in dictionary) {
-                dictionary[tuple[0]] += tuple[1];
-            } else {
-                dictionary[tuple[0]] = tuple[1];
+                if (tuple[0] in dictionary) {
+                    dictionary[tuple[0]] += tuple[1];
+                } else {
+                    dictionary[tuple[0]] = tuple[1];
+                }
             }
         }
 
-        node = node.next;
+        return sortDistanceObject(dictionary);
     }
 
-    setLanguages(parent, sortDistanceObject(dictionary));
-
-    onchangeinparent(parent.parent);
-}
-
-/**
- * Handler for a change inside a `SentenceNode`.
- *
- * @this {SentenceNode}
- */
-function onchangeinside() {
-    var self;
-
-    self = this;
-
-    setLanguages(self, franc.all(self.toString()));
-
-    onchangeinparent(self.parent);
-}
-
-/**
- * Define `language`.
- *
- * @param {Retext} retext
- * @return {function(Node)}
- */
-function language(retext) {
-    retext.use(visit);
-
-    retext.TextOM.SentenceNode.on('changeinside', onchangeinside);
-
-    /*
-     * Define `onrun`.
-     *
-     * @param {Node} tree
+    /**
+     * Patch all parents in reverse order: this means
+     * that first the last and deepest parent is invoked
+     * up to the first and highest parent.
      */
+    function done() {
+        var index = queue.length;
 
-    return function (tree) {
-        tree.visit(tree.PARAGRAPH_NODE, onchangeinparent);
-    };
+        while (index--) {
+            patch(queue[index], one(queue[index]));
+        }
+    }
+
+    concatenate.done = done;
+
+    return concatenate;
+}
+
+/**
+ * Transformer.
+ *
+ * @param {NLCSTNode} cst - Syntax tree.
+ */
+function transformer(cst) {
+    var concatenate = concatenateFactory();
+
+    visit(cst, 'SentenceNode', any);
+    visit(cst, concatenate);
+
+    concatenate.done();
+}
+
+/**
+ * Attacher.
+ *
+ * @return {Function} - `transformer`.
+ */
+function attacher() {
+    return transformer;
 }
 
 /*
- * Expose `language`.
+ * Expose.
  */
 
-module.exports = language;
+module.exports = attacher;
