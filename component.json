@@ -13,7 +13,7 @@
   ],
   "dependencies": {
     "wooorm/unist-util-visit": "^1.0.0",
-    "wooorm/nlcst-to-string": "~0.1.5",
+    "wooorm/nlcst-to-string": "^1.0.0",
     "wooorm/franc": "^1.1.1"
   },
   "repository": "wooorm/retext-language",
