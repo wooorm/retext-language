@@ -12,6 +12,7 @@
     "retext"
   ],
   "dependencies": {
+    "franc": "^1.1.1",
     "nlcst-to-string": "^1.0.0",
     "unist-util-visit": "^1.0.0"
   },
@@ -28,7 +29,6 @@
     "chalk": "^1.0.0",
     "eslint": "^1.0.0",
     "esmangle": "^1.0.1",
-    "franc": "^1.1.1",
     "istanbul": "^0.4.0",
     "jscs": "^2.0.0",
     "jscs-jsdoc": "^1.0.0",
