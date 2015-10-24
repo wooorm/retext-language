@@ -41,7 +41,7 @@ describe('language()', function () {
 
     before(function (done) {
         retext.use(language).process(fixture, function (err, file) {
-            tree = file.namespace('retext').cst;
+            tree = file.namespace('retext').tree;
 
             done(err);
         });

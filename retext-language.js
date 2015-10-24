@@ -190,7 +190,7 @@ function attacher() {
 
 module.exports = attacher;
 
-},{"franc":2,"nlcst-to-string":8,"unist-util-visit":9}],2:[function(require,module,exports){
+},{"franc":2,"nlcst-to-string":7,"unist-util-visit":9}],2:[function(require,module,exports){
 'use strict';
 
 module.exports = require('./lib/franc');
@@ -741,7 +741,160 @@ detect.all = detectAll;
 
 module.exports = detect;
 
-},{"./data.json":3,"./expressions.js":4,"trigram-utils":6}],6:[function(require,module,exports){
+},{"./data.json":3,"./expressions.js":4,"trigram-utils":8}],6:[function(require,module,exports){
+'use strict';
+
+/**
+ * A factory returning a function that converts a given string to n-grams.
+ *
+ * @example
+ *   nGram(2) // [Function]
+ *
+ * @example
+ *   nGram(4) // [Function]
+ *
+ *
+ * @param {number} n - The `n` in n-gram.
+ * @throws {Error} When `n` is not a number (incl. NaN), Infinity, or lt 1.
+ * @return {Function} A function creating n-grams from a given value.
+ */
+function nGram(n) {
+    if (
+        typeof n !== 'number' ||
+        n < 1 ||
+        n !== n ||
+        n === Infinity
+    ) {
+        throw new Error(
+            'Type error: `' + n + '` is not a valid argument for n-gram'
+        );
+    }
+
+    /*
+     * Create n-grams from a given value.
+     *
+     * @example
+     *   nGram(4)('n-gram')
+     *   // ['n-gr', '-gra', 'gram']
+     *
+     * @param {*} value - The value to stringify and convert into n-grams.
+     * @return {Array.<string>} n-grams
+     */
+
+    return function (value) {
+        var nGrams,
+            index;
+
+        nGrams = [];
+
+        if (value === null || value === undefined) {
+            return nGrams;
+        }
+
+        value = String(value);
+
+        index = value.length - n + 1;
+
+        if (index < 1) {
+            return nGrams;
+        }
+
+        while (index--) {
+            nGrams[index] = value.substr(index, n);
+        }
+
+        return nGrams;
+    };
+}
+
+/*
+ * Export `n-gram`.
+ */
+
+module.exports = nGram;
+
+/*
+ * Create bigrams from a given value.
+ *
+ * @example
+ *   bigram('n-gram')
+ *   // ["n-", "-g", "gr", "ra", "am"]
+ *
+ * @param {*} value - The value to stringify and convert into bigrams.
+ * @return {Array.<string>} bigrams
+ */
+
+nGram.bigram = nGram(2);
+
+/*
+ * Create trigrams from a given value.
+ *
+ * @example
+ *   trigram('n-gram')
+ *   // ["n-g", "-gr", "gra", "ram"]
+ *
+ * @param {*} value - The value to stringify and convert into trigrams.
+ * @return {Array.<string>} trigrams
+ */
+
+nGram.trigram = nGram(3);
+
+},{}],7:[function(require,module,exports){
+/**
+ * @author Titus Wormer
+ * @copyright 2014-2015 Titus Wormer
+ * @license MIT
+ * @module nlcst:to-string
+ * @fileoverview Transform an NLCST node into a string.
+ */
+
+'use strict';
+
+/* eslint-env commonjs */
+
+/**
+ * Stringify an NLCST node.
+ *
+ * @param {NLCSTNode|Array.<NLCSTNode>} node - Node to to
+ *   stringify.
+ * @return {string} - Stringified `node`.
+ */
+function nlcstToString(node) {
+    var values;
+    var length;
+    var children;
+
+    if (typeof node.value === 'string') {
+        return node.value;
+    }
+
+    children = 'length' in node ? node : node.children;
+    length = children.length;
+
+    /*
+     * Shortcut: This is pretty common, and a small performance win.
+     */
+
+    if (length === 1 && 'value' in children[0]) {
+        return children[0].value;
+    }
+
+    values = [];
+
+    while (length--) {
+        values[length] = nlcstToString(children[length]);
+    }
+
+    return values.join('');
+}
+
+/*
+ * Expose.
+ */
+
+module.exports = nlcstToString;
+
+},{}],8:[function(require,module,exports){
 'use strict';
 
 var getTrigrams,
@@ -947,149 +1100,7 @@ module.exports = {
     'tuplesAsDictionary': getCleanTrigramTuplesAsDictionary
 };
 
-},{"n-gram":7}],7:[function(require,module,exports){
-'use strict';
-
-/**
- * A factory returning a function that converts a given string to n-grams.
- *
- * @example
- *   nGram(2) // [Function]
- *
- * @example
- *   nGram(4) // [Function]
- *
- *
- * @param {number} n - The `n` in n-gram.
- * @throws {Error} When `n` is not a number (incl. NaN), Infinity, or lt 1.
- * @return {Function} A function creating n-grams from a given value.
- */
-function nGram(n) {
-    if (
-        typeof n !== 'number' ||
-        n < 1 ||
-        n !== n ||
-        n === Infinity
-    ) {
-        throw new Error(
-            'Type error: `' + n + '` is not a valid argument for n-gram'
-        );
-    }
-
-    /*
-     * Create n-grams from a given value.
-     *
-     * @example
-     *   nGram(4)('n-gram')
-     *   // ['n-gr', '-gra', 'gram']
-     *
-     * @param {*} value - The value to stringify and convert into n-grams.
-     * @return {Array.<string>} n-grams
-     */
-
-    return function (value) {
-        var nGrams,
-            index;
-
-        nGrams = [];
-
-        if (value === null || value === undefined) {
-            return nGrams;
-        }
-
-        value = String(value);
-
-        index = value.length - n + 1;
-
-        if (index < 1) {
-            return nGrams;
-        }
-
-        while (index--) {
-            nGrams[index] = value.substr(index, n);
-        }
-
-        return nGrams;
-    };
-}
-
-/*
- * Export `n-gram`.
- */
-
-module.exports = nGram;
-
-/*
- * Create bigrams from a given value.
- *
- * @example
- *   bigram('n-gram')
- *   // ["n-", "-g", "gr", "ra", "am"]
- *
- * @param {*} value - The value to stringify and convert into bigrams.
- * @return {Array.<string>} bigrams
- */
-
-nGram.bigram = nGram(2);
-
-/*
- * Create trigrams from a given value.
- *
- * @example
- *   trigram('n-gram')
- *   // ["n-g", "-gr", "gra", "ram"]
- *
- * @param {*} value - The value to stringify and convert into trigrams.
- * @return {Array.<string>} trigrams
- */
-
-nGram.trigram = nGram(3);
-
-},{}],8:[function(require,module,exports){
-'use strict';
-
-/**
- * Stringify an NLCST node.
- *
- * @param {NLCSTNode} nlcst
- * @return {string}
- */
-function nlcstToString(nlcst) {
-    var values,
-        length,
-        children;
-
-    if (typeof nlcst.value === 'string') {
-        return nlcst.value;
-    }
-
-    children = nlcst.children;
-    length = children.length;
-
-    /**
-     * Shortcut: This is pretty common, and a small performance win.
-     */
-
-    if (length === 1 && 'value' in children[0]) {
-        return children[0].value;
-    }
-
-    values = [];
-
-    while (length--) {
-        values[length] = nlcstToString(children[length]);
-    }
-
-    return values.join('');
-}
-
-/*
- * Expose `nlcstToString`.
- */
-
-module.exports = nlcstToString;
-
-},{}],9:[function(require,module,exports){
+},{"n-gram":6}],9:[function(require,module,exports){
 /**
  * @author Titus Wormer
  * @copyright 2015 Titus Wormer. All rights reserved.
